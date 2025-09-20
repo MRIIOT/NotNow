@@ -136,6 +136,70 @@ public class CoreModule : ICommandModule
                         new() { Name = "level", Type = typeof(string), Required = true, Description = "Priority (low, medium, high, critical)" }
                     }
                 }
+            },
+
+            new CommandRegistration
+            {
+                Name = "comment",
+                Aliases = new[] { "c", "msg" },
+                Description = "Post a comment to the issue",
+                Context = CommandContext.Comment,
+                HandlerType = typeof(CommentCommandHandler),
+                Schema = new CommandSchema
+                {
+                    Parameters = new List<CommandParameter>
+                    {
+                        new() { Name = "message", Type = typeof(string), Required = false, Description = "Comment text" }
+                    },
+                    Options = new List<CommandOption>
+                    {
+                        new() { LongName = "body", ShortName = "b", Type = typeof(string), Description = "Comment body (alternative to message parameter)" },
+                        new() { LongName = "markdown", ShortName = "m", Type = typeof(bool), Description = "Format as markdown quote" }
+                    }
+                }
+            },
+
+            new CommandRegistration
+            {
+                Name = "note",
+                Aliases = new[] { "n" },
+                Description = "Add a formatted note to the issue",
+                Context = CommandContext.Comment,
+                HandlerType = typeof(NoteCommandHandler),
+                Schema = new CommandSchema
+                {
+                    Parameters = new List<CommandParameter>
+                    {
+                        new() { Name = "text", Type = typeof(string), Required = true, Description = "Note content" }
+                    },
+                    Options = new List<CommandOption>
+                    {
+                        new() { LongName = "title", ShortName = "t", Type = typeof(string), Description = "Note title" },
+                        new() { LongName = "category", ShortName = "c", Type = typeof(string), Description = "Note category (default: note)" }
+                    }
+                }
+            },
+
+            new CommandRegistration
+            {
+                Name = "update",
+                Aliases = new[] { "u", "progress" },
+                Description = "Post a status update with progress",
+                Context = CommandContext.Comment,
+                HandlerType = typeof(UpdateCommandHandler),
+                Schema = new CommandSchema
+                {
+                    Parameters = new List<CommandParameter>
+                    {
+                        new() { Name = "message", Type = typeof(string), Required = false, Description = "Update message" }
+                    },
+                    Options = new List<CommandOption>
+                    {
+                        new() { LongName = "progress", ShortName = "p", Type = typeof(int), Description = "Progress percentage (0-100)" },
+                        new() { LongName = "blockers", ShortName = "b", Type = typeof(string), Description = "Comma-separated list of blockers" },
+                        new() { LongName = "next", ShortName = "n", Type = typeof(string), Description = "Comma-separated list of next steps" }
+                    }
+                }
             }
         };
     }

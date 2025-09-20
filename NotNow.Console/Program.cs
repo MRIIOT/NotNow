@@ -6,6 +6,8 @@ using NotNow.Core.Commands.Framework;
 using NotNow.Core.Commands.Registry;
 using NotNow.Core.Console;
 using NotNow.Core.Extensions;
+using NotNow.Core.Models;
+using NotNow.Core.Services;
 using NotNow.GitHubService.Extensions;
 using NotNow.GitHubService.Interfaces;
 using Octokit;
@@ -17,7 +19,10 @@ class Program
     private static ICommandRegistry? _commandRegistry;
     private static ICommandAutoCompleter? _autoCompleter;
     private static NotNow.Core.Services.ICommandPostingService? _commandPoster;
+    private static IIssueStateParser? _issueStateParser;
+    private static IIssueStateService? _issueStateService;
     private static Issue? _currentIssue;
+    private static IssueState? _currentIssueState;
     private static List<Issue> _issues = new();
 
     static async Task Main(string[] args)
@@ -28,6 +33,8 @@ class Program
         _commandRegistry = host.Services.GetRequiredService<ICommandRegistry>();
         _autoCompleter = host.Services.GetRequiredService<ICommandAutoCompleter>();
         _commandPoster = host.Services.GetRequiredService<NotNow.Core.Services.ICommandPostingService>();
+        _issueStateParser = host.Services.GetRequiredService<IIssueStateParser>();
+        _issueStateService = host.Services.GetRequiredService<IIssueStateService>();
 
         // Initialize command registry with modules
         var initService = host.Services.GetRequiredService<NotNow.Core.Services.ICommandInitializationService>();
@@ -117,10 +124,123 @@ class Program
         Console.WriteLine("            Main Menu");
         Console.WriteLine("========================================");
 
-        if (_currentIssue != null)
+        if (_currentIssue != null && _currentIssueState != null)
+        {
+            Console.WriteLine($"\nCurrent Issue: #{_currentIssue.Number} - {_currentIssue.Title}");
+            Console.WriteLine($"GitHub State: {_currentIssue.State}");
+
+            // Display parsed NotNow state
+            Console.WriteLine("\n--- NotNow Status ---");
+            if (_currentIssueState.IsInitialized)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ NotNow Tracking Active");
+                Console.ResetColor();
+
+                // Status and Priority
+                Console.Write($"Status: ");
+                SetStatusColor(_currentIssueState.Status);
+                Console.Write(_currentIssueState.Status);
+                Console.ResetColor();
+                Console.Write($" | Priority: ");
+                SetPriorityColor(_currentIssueState.Priority);
+                Console.WriteLine(_currentIssueState.Priority);
+                Console.ResetColor();
+
+                // Type and Assignee
+                if (_currentIssueState.Type != null || _currentIssueState.Assignee != null)
+                {
+                    if (_currentIssueState.Type != null)
+                        Console.Write($"Type: {_currentIssueState.Type}");
+                    if (_currentIssueState.Type != null && _currentIssueState.Assignee != null)
+                        Console.Write(" | ");
+                    if (_currentIssueState.Assignee != null)
+                        Console.Write($"Assignee: @{_currentIssueState.Assignee}");
+                    Console.WriteLine();
+                }
+
+                // Estimate and Due Date
+                if (_currentIssueState.Estimate != null || _currentIssueState.DueDate != null)
+                {
+                    if (_currentIssueState.Estimate != null)
+                        Console.Write($"Estimate: {_currentIssueState.Estimate}");
+                    if (_currentIssueState.Estimate != null && _currentIssueState.DueDate != null)
+                        Console.Write(" | ");
+                    if (_currentIssueState.DueDate != null)
+                    {
+                        var daysUntil = (_currentIssueState.DueDate.Value - DateTime.Now).Days;
+                        Console.Write($"Due: {_currentIssueState.DueDate:yyyy-MM-dd}");
+                        if (daysUntil < 0)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.Write($" (OVERDUE by {Math.Abs(daysUntil)} days)");
+                        }
+                        else if (daysUntil <= 3)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.Write($" ({daysUntil} days)");
+                        }
+                        else
+                        {
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                            Console.Write($" ({daysUntil} days)");
+                        }
+                        Console.ResetColor();
+                    }
+                    Console.WriteLine();
+                }
+
+                // Tags
+                if (_currentIssueState.Tags.Any())
+                {
+                    Console.Write("Tags: ");
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(string.Join(", ", _currentIssueState.Tags));
+                    Console.ResetColor();
+                }
+
+                // Time Tracking
+                if (_currentIssueState.TotalTimeSpent > TimeSpan.Zero || _currentIssueState.ActiveSession != null)
+                {
+                    Console.Write($"Time Spent: {FormatTimeSpan(_currentIssueState.TotalTimeSpent)}");
+                    if (_currentIssueState.ActiveSession != null)
+                    {
+                        var currentDuration = DateTime.UtcNow - _currentIssueState.ActiveSession.StartedAt;
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write($" (+ {FormatTimeSpan(currentDuration)} ACTIVE)");
+                        Console.ResetColor();
+                    }
+                    Console.WriteLine();
+                }
+
+                // Subtasks
+                if (_currentIssueState.Subtasks.Any())
+                {
+                    var completed = _currentIssueState.Subtasks.Count(s => s.Status == "done");
+                    var total = _currentIssueState.Subtasks.Count;
+                    Console.Write($"Subtasks: {completed}/{total} completed");
+                    if (completed == total)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write(" ✓");
+                    }
+                    Console.ResetColor();
+                    Console.WriteLine();
+                }
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("(NotNow tracking not initialized)");
+                Console.ResetColor();
+            }
+            Console.WriteLine("----------------------------------------");
+        }
+        else if (_currentIssue != null)
         {
             Console.WriteLine($"\nCurrent Issue: #{_currentIssue.Number} - {_currentIssue.Title}");
             Console.WriteLine($"State: {_currentIssue.State}");
+            Console.WriteLine("(Loading issue state...)");
             Console.WriteLine("----------------------------------------");
         }
 
@@ -133,6 +253,59 @@ class Program
         Console.WriteLine("7. Show Command Help");
         Console.WriteLine("8. Exit");
         Console.Write("\nSelect an option: ");
+    }
+
+    static void SetStatusColor(string status)
+    {
+        switch (status?.ToLower())
+        {
+            case "done":
+            case "completed":
+                Console.ForegroundColor = ConsoleColor.Green;
+                break;
+            case "in_progress":
+            case "in-progress":
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                break;
+            case "blocked":
+                Console.ForegroundColor = ConsoleColor.Red;
+                break;
+            default:
+                Console.ForegroundColor = ConsoleColor.Gray;
+                break;
+        }
+    }
+
+    static void SetPriorityColor(string priority)
+    {
+        switch (priority?.ToLower())
+        {
+            case "critical":
+                Console.ForegroundColor = ConsoleColor.Red;
+                break;
+            case "high":
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                break;
+            case "medium":
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                break;
+            case "low":
+                Console.ForegroundColor = ConsoleColor.Gray;
+                break;
+            default:
+                Console.ForegroundColor = ConsoleColor.White;
+                break;
+        }
+    }
+
+    static string FormatTimeSpan(TimeSpan time)
+    {
+        if (time.TotalDays >= 1)
+            return $"{(int)time.TotalDays}d {time.Hours}h {time.Minutes}m";
+        else if (time.TotalHours >= 1)
+            return $"{(int)time.TotalHours}h {time.Minutes}m";
+        else
+            return $"{time.Minutes}m";
     }
 
     static async Task EnterCommandMode()
@@ -424,10 +597,53 @@ class Program
             if (_currentIssue != null)
             {
                 Console.WriteLine($"\nIssue #{_currentIssue.Number} selected as current issue.");
+                Console.WriteLine("\nLoading issue state and parsing commands...");
+
+                try
+                {
+                    // Fetch all comments for the issue
+                    var comments = await _gitHubService!.GetIssueCommentsAsync(_currentIssue.Number);
+
+                    // Parse the issue state from all commands
+                    _currentIssueState = _issueStateParser!.ParseIssueState(_currentIssue, comments);
+
+                    // Store the state in the service
+                    _issueStateService!.SetState(_currentIssue.Number, _currentIssueState);
+
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("✓ Issue state loaded successfully");
+
+                    if (_currentIssueState.IsInitialized)
+                    {
+                        Console.WriteLine($"  Status: {_currentIssueState.Status}");
+                        Console.WriteLine($"  Priority: {_currentIssueState.Priority}");
+                        if (_currentIssueState.TotalTimeSpent > TimeSpan.Zero)
+                            Console.WriteLine($"  Time Spent: {FormatTimeSpan(_currentIssueState.TotalTimeSpent)}");
+                        if (_currentIssueState.Subtasks.Any())
+                        {
+                            var completed = _currentIssueState.Subtasks.Count(s => s.Status == "done");
+                            Console.WriteLine($"  Subtasks: {completed}/{_currentIssueState.Subtasks.Count} completed");
+                        }
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("⚠ NotNow tracking not initialized for this issue");
+                    }
+                    Console.ResetColor();
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"✗ Error loading issue state: {ex.Message}");
+                    Console.ResetColor();
+                    _currentIssueState = null;
+                }
             }
             else
             {
                 Console.WriteLine($"\nIssue #{issueNumber} not found in the loaded issues.");
+                _currentIssueState = null;
             }
         }
         else

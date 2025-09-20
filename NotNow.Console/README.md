@@ -91,49 +91,343 @@ When you start the application, you'll see the main menu with the following opti
 
 ### Command Mode Features
 
-When in command mode (option 6), you can use NotNow commands to manage tasks:
+When in command mode (option 6), you can use NotNow commands to manage tasks. Commands are automatically posted to GitHub when successful.
 
-#### Available Commands
+## Complete Command Reference
 
-- **status** - Update issue status (todo, in_progress, done)
-- **assign** - Assign issue to a user
-- **due** - Set due date
-- **estimate** - Set time estimate
-- **tags** - Add/manage tags
-- **priority** - Set priority level
-- **time** - Log time spent
-- **start** - Start a work session
-- **stop** - Stop current work session
-- **session** - View session information
-- **timespent** - View total time spent
-- **subtask** - Manage subtasks
-- **complete** - Mark as complete
-- **reopen** - Reopen completed issue
+### Core Commands
 
-#### Command Examples
+#### `init` - Initialize NotNow tracking
+**Context:** Issue body only
+**Syntax:** `/notnow init [options]`
+**Options:**
+- `--type <type>` - Issue type (bug, feature, task)
+- `--priority <level>` - Priority (low, medium, high, critical)
+- `--workflow <name>` - Workflow to use
 
+**Example:**
 ```bash
-# Update status
+/notnow init --type feature --priority high
+```
+
+#### `status` - Update issue status
+**Context:** Comments
+**Syntax:** `/notnow status <status> [options]`
+**Parameters:**
+- `status` - New status (todo, in_progress, done, blocked)
+
+**Options:**
+- `--reason <text>` or `-r <text>` - Reason for status change
+
+**Examples:**
+```bash
 /notnow status in_progress
+/notnow status blocked --reason "Waiting for API access"
+/notnow status done
+```
 
-# Assign to a user
-/notnow assign @username
+#### `assign` - Assign issue to user
+**Aliases:** assignee
+**Context:** Comments
+**Syntax:** `/notnow assign <username> [options]`
+**Parameters:**
+- `username` - GitHub username (with or without @)
 
-# Set estimate
-/notnow estimate 4h30m
+**Options:**
+- `--notify` or `-n` - Send notification
 
-# Log time with description
-/notnow time 2h --description "Implemented feature X"
+**Examples:**
+```bash
+/notnow assign @johndoe
+/notnow assign alice --notify
+```
 
-# Add a subtask
-/notnow subtask add "Write unit tests" --estimate 2h
+#### `due` - Set due date
+**Context:** Both issue body and comments
+**Syntax:** `/notnow due <date>`
+**Parameters:**
+- `date` - Due date in YYYY-MM-DD format
 
-# Start work session with description
+**Examples:**
+```bash
+/notnow due 2025-12-31
+/notnow due 2025-01-15
+```
+
+#### `estimate` - Set time estimate
+**Context:** Both issue body and comments
+**Syntax:** `/notnow estimate <duration>`
+**Parameters:**
+- `duration` - Time estimate (e.g., 2h, 4h30m, 3d)
+
+**Examples:**
+```bash
+/notnow estimate 8h
+/notnow estimate 2h30m
+/notnow estimate 3d
+```
+
+#### `tags` - Manage tags
+**Aliases:** tag
+**Context:** Both issue body and comments
+**Syntax:** `/notnow tags <action> <tags>`
+**Parameters:**
+- `action` - add or remove
+- `tags` - Comma-separated list of tags
+
+**Examples:**
+```bash
+/notnow tags add backend,api,urgent
+/notnow tags remove wip
+/notnow tag add documentation
+```
+
+#### `priority` - Set priority level
+**Context:** Both issue body and comments
+**Syntax:** `/notnow priority <level>`
+**Parameters:**
+- `level` - Priority (low, medium, high, critical)
+
+**Examples:**
+```bash
+/notnow priority high
+/notnow priority critical
+```
+
+#### `type` - Set issue type
+**Context:** Both issue body and comments
+**Syntax:** `/notnow type <type>`
+**Parameters:**
+- `type` - Issue type (bug, feature, task, enhancement)
+
+**Examples:**
+```bash
+/notnow type bug
+/notnow type feature
+```
+
+### Time Tracking Commands
+
+#### `start` - Start work session
+**Context:** Comments
+**Syntax:** `/notnow start [options]`
+**Options:**
+- `--description <text>` or `-d <text>` - Session description
+
+**Examples:**
+```bash
+/notnow start
 /notnow start -d "Working on API integration"
+/notnow start --description "Fixing authentication bug"
+```
 
-# Stop work session
+#### `stop` - Stop current work session
+**Context:** Comments
+**Syntax:** `/notnow stop`
+
+**Example:**
+```bash
 /notnow stop
 ```
+
+#### `time` - Log time spent
+**Context:** Comments
+**Syntax:** `/notnow time <duration> [options]`
+**Parameters:**
+- `duration` - Time spent (e.g., 2h, 1h30m)
+
+**Options:**
+- `--description <text>` or `-d <text>` - Work description
+- `--date <date>` - Date of work (default: today)
+
+**Examples:**
+```bash
+/notnow time 2h
+/notnow time 1h30m --description "Code review and testing"
+/notnow time 4h -d "Implementation" --date 2025-01-10
+```
+
+#### `session` - View session information
+**Context:** Comments
+**Syntax:** `/notnow session [options]`
+**Options:**
+- `--current` or `-c` - Show only current session
+- `--list` or `-l` - List all sessions
+
+**Examples:**
+```bash
+/notnow session
+/notnow session --current
+/notnow session --list
+```
+
+#### `timespent` - View total time spent
+**Context:** Comments
+**Syntax:** `/notnow timespent [options]`
+**Options:**
+- `--by-day` - Group by day
+- `--by-user` - Group by user
+
+**Examples:**
+```bash
+/notnow timespent
+/notnow timespent --by-day
+/notnow timespent --by-user
+```
+
+### Subtask Commands
+
+#### `subtask` - Manage subtasks
+**Aliases:** task
+**Context:** Both issue body and comments
+**Syntax:** `/notnow subtask <action> [title] [options]`
+**Parameters:**
+- `action` - Action to perform (add, complete, remove, list)
+- `title` - Subtask title (for add action)
+
+**Options:**
+- `--id <id>` - Subtask ID
+- `--estimate <duration>` - Time estimate
+- `--depends <ids>` - Dependencies (comma-separated IDs)
+- `--assignee <username>` - Assignee
+
+**Examples:**
+```bash
+# Add subtasks
+/notnow subtask add "Write unit tests" --estimate 2h
+/notnow subtask add "Update documentation" --id doc1 --assignee @alice
+/notnow subtask add "Deploy to staging" --depends doc1,test1
+
+# List subtasks
+/notnow subtask list
+
+# Complete a subtask
+/notnow subtask complete st1
+
+# Remove a subtask
+/notnow subtask remove st2
+```
+
+#### `complete` - Mark subtask as complete
+**Aliases:** done, finish
+**Context:** Comments
+**Syntax:** `/notnow complete <id> [options]`
+**Parameters:**
+- `id` - Subtask ID to complete
+
+**Options:**
+- `--time <duration>` - Time spent
+- `--notes <text>` - Completion notes
+
+**Examples:**
+```bash
+/notnow complete st1
+/notnow complete doc1 --time 1h30m
+/notnow done test1 --notes "All tests passing"
+```
+
+#### `reopen` - Reopen completed subtask
+**Context:** Comments
+**Syntax:** `/notnow reopen <id> [options]`
+**Parameters:**
+- `id` - Subtask ID to reopen
+
+**Options:**
+- `--reason <text>` - Reason for reopening
+
+**Examples:**
+```bash
+/notnow reopen st1
+/notnow reopen test1 --reason "Found additional edge cases"
+```
+
+### Communication Commands
+
+#### `comment` - Post a comment
+**Aliases:** c, msg
+**Context:** Comments
+**Syntax:** `/notnow comment [message] [options]`
+**Parameters:**
+- `message` - Comment text
+
+**Options:**
+- `--body <text>` or `-b <text>` - Alternative to message parameter
+- `--markdown` or `-m` - Format as markdown quote
+
+**Examples:**
+```bash
+/notnow comment "This looks good to me"
+/notnow c "Starting work on this now"
+/notnow comment --body "Longer comment with multiple lines" --markdown
+```
+
+#### `note` - Add a formatted note
+**Aliases:** n
+**Context:** Comments
+**Syntax:** `/notnow note <text> [options]`
+**Parameters:**
+- `text` - Note content
+
+**Options:**
+- `--title <text>` or `-t <text>` - Note title
+- `--category <category>` or `-c <category>` - Note category
+
+**Examples:**
+```bash
+/notnow note "Remember to update the documentation"
+/notnow n "API needs authentication" --title "Security Note" --category security
+/notnow note "Decision: Use PostgreSQL" --category decision
+```
+
+#### `update` - Post a status update
+**Aliases:** u, progress
+**Context:** Comments
+**Syntax:** `/notnow update [message] [options]`
+**Parameters:**
+- `message` - Update message
+
+**Options:**
+- `--progress <percentage>` or `-p <percentage>` - Progress (0-100)
+- `--blockers <list>` or `-b <list>` - Comma-separated blockers
+- `--next <list>` or `-n <list>` - Comma-separated next steps
+
+**Examples:**
+```bash
+/notnow update "Finished API integration" --progress 75
+/notnow u --progress 50 --blockers "Waiting for API keys"
+/notnow progress "On track" -p 80 --next "Write tests, Deploy"
+```
+
+### Command Context
+
+- **IssueBody**: Commands that can only be used in the issue description
+- **Comment**: Commands that can be used in comments
+- **Both**: Commands that work in both contexts
+
+### Auto-completion
+
+Press **Tab** at any point to see available options:
+- After `/notnow` - shows all available commands
+- After command name - shows available parameters and options
+- While typing - filters suggestions based on input
+
+### Command Chaining
+
+Multiple commands can be included in a single comment:
+
+```bash
+/notnow status in_progress
+/notnow assign @alice
+/notnow estimate 4h
+/notnow subtask add "Review PR" --estimate 30m
+```
+
+### Error Handling
+
+- Commands with errors are not posted to GitHub
+- Error messages appear in red
+- Success messages appear in green
+- Command data is shown in gray
 
 ### Keyboard Shortcuts
 

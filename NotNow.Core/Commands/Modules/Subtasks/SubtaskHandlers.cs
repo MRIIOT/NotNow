@@ -1,4 +1,7 @@
+using Microsoft.Extensions.DependencyInjection;
 using NotNow.Core.Commands.Framework;
+using NotNow.Core.Models;
+using NotNow.Core.Services;
 using System.Text.RegularExpressions;
 
 namespace NotNow.Core.Commands.Modules.Subtasks;
@@ -7,18 +10,24 @@ public class SubtaskArgs : CommandArgs { }
 
 public class SubtaskHandler : CommandHandler<SubtaskArgs>
 {
-    // Mock storage for demo
-    internal static readonly Dictionary<int, List<Subtask>> _subtasks = new();
+    private readonly IServiceProvider _serviceProvider;
+
+    public SubtaskHandler(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
 
     public override async Task<CommandResult> ExecuteAsync(CommandExecutionContext context, SubtaskArgs args)
     {
         var action = args.GetParameter<string>("action", "add").ToLower();
         var title = args.GetParameter<string>("title");
 
-        if (!_subtasks.ContainsKey(context.IssueNumber))
-            _subtasks[context.IssueNumber] = new List<Subtask>();
+        // Get the state service
+        var stateService = _serviceProvider.GetRequiredService<IIssueStateService>();
+        var issueState = stateService.GetOrCreateState(context.IssueNumber);
 
-        var subtasks = _subtasks[context.IssueNumber];
+        // Use subtasks from the parsed state
+        var subtasks = issueState.Subtasks;
 
         switch (action)
         {
@@ -52,24 +61,26 @@ public class SubtaskHandler : CommandHandler<SubtaskArgs>
 
         var id = args.GetOption<string>("id") ?? $"st{subtasks.Count + 1}";
         var estimate = args.GetOption<string>("estimate");
-        var depends = args.GetOption<string>("depends");
         var assignee = args.GetOption<string>("assignee");
 
         var subtask = new Subtask
         {
             Id = id,
             Title = title,
-            CreatedAt = DateTime.UtcNow,
-            CreatedBy = context.User,
-            Estimate = ParseDuration(estimate),
-            Dependencies = depends?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>(),
-            Assignee = assignee,
-            IsCompleted = false
+            Status = "pending",
+            Estimate = estimate,
+            Assignee = assignee
         };
 
         subtasks.Add(subtask);
 
-        return await Task.FromResult(CommandResult.Ok($"Added subtask '{title}' with ID '{id}'", subtask));
+        return await Task.FromResult(CommandResult.Ok($"Added subtask '{title}' with ID '{id}'", new
+        {
+            Id = id,
+            Title = title,
+            Estimate = estimate,
+            Assignee = assignee
+        }));
     }
 
     private async Task<CommandResult> ListSubtasks(List<Subtask> subtasks)
@@ -80,13 +91,14 @@ public class SubtaskHandler : CommandHandler<SubtaskArgs>
         var result = new
         {
             Count = subtasks.Count,
-            Completed = subtasks.Count(s => s.IsCompleted),
+            Completed = subtasks.Count(s => s.Status == "done"),
             Subtasks = subtasks.Select(s => new
             {
                 s.Id,
                 s.Title,
-                s.IsCompleted,
-                EstimateHours = s.Estimate?.TotalHours,
+                Status = s.Status,
+                IsCompleted = s.Status == "done",
+                Estimate = s.Estimate,
                 s.Assignee
             })
         };
@@ -118,7 +130,12 @@ public class CompleteSubtaskArgs : CommandArgs { }
 
 public class CompleteSubtaskHandler : CommandHandler<CompleteSubtaskArgs>
 {
-    private static readonly Dictionary<int, List<Subtask>> _subtasks = SubtaskHandler._subtasks;
+    private readonly IServiceProvider _serviceProvider;
+
+    public CompleteSubtaskHandler(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
 
     public override async Task<CommandResult> ExecuteAsync(CommandExecutionContext context, CompleteSubtaskArgs args)
     {
@@ -126,33 +143,31 @@ public class CompleteSubtaskHandler : CommandHandler<CompleteSubtaskArgs>
         var time = args.GetOption<string>("time");
         var notes = args.GetOption<string>("notes");
 
-        if (!_subtasks.TryGetValue(context.IssueNumber, out var subtasks))
-            return CommandResult.Failure("No subtasks found for this issue");
+        // Get the state service
+        var stateService = _serviceProvider.GetRequiredService<IIssueStateService>();
+        var issueState = stateService.GetOrCreateState(context.IssueNumber);
+        var subtasks = issueState.Subtasks;
 
         var subtask = subtasks.FirstOrDefault(s => s.Id == id);
         if (subtask == null)
             return CommandResult.Failure($"Subtask '{id}' not found");
 
-        if (subtask.IsCompleted)
+        if (subtask.Status == "done")
             return CommandResult.Failure($"Subtask '{id}' is already completed");
 
-        subtask.IsCompleted = true;
+        subtask.Status = "done";
         subtask.CompletedAt = DateTime.UtcNow;
-        subtask.CompletedBy = context.User;
-        subtask.TimeSpent = ParseDuration(time);
-        subtask.CompletionNotes = notes;
 
         var result = new
         {
             SubtaskId = id,
             Title = subtask.Title,
             CompletedAt = subtask.CompletedAt,
-            TimeSpent = subtask.TimeSpent?.TotalHours,
             Notes = notes
         };
 
         var message = $"Completed subtask '{subtask.Title}'";
-        if (subtask.TimeSpent.HasValue)
+        if (!string.IsNullOrEmpty(time))
             message += $" (time: {time})";
 
         return await Task.FromResult(CommandResult.Ok(message, result));
@@ -181,32 +196,36 @@ public class ReopenSubtaskArgs : CommandArgs { }
 
 public class ReopenSubtaskHandler : CommandHandler<ReopenSubtaskArgs>
 {
-    private static readonly Dictionary<int, List<Subtask>> _subtasks = SubtaskHandler._subtasks;
+    private readonly IServiceProvider _serviceProvider;
+
+    public ReopenSubtaskHandler(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
 
     public override async Task<CommandResult> ExecuteAsync(CommandExecutionContext context, ReopenSubtaskArgs args)
     {
         var id = args.GetParameter<string>("id");
         var reason = args.GetOption<string>("reason");
 
-        if (!_subtasks.TryGetValue(context.IssueNumber, out var subtasks))
-            return CommandResult.Failure("No subtasks found for this issue");
+        // Get the state service
+        var stateService = _serviceProvider.GetRequiredService<IIssueStateService>();
+        var issueState = stateService.GetOrCreateState(context.IssueNumber);
+        var subtasks = issueState.Subtasks;
 
         var subtask = subtasks.FirstOrDefault(s => s.Id == id);
         if (subtask == null)
             return CommandResult.Failure($"Subtask '{id}' not found");
 
-        if (!subtask.IsCompleted)
+        if (subtask.Status != "done")
             return CommandResult.Failure($"Subtask '{id}' is not completed");
 
-        subtask.IsCompleted = false;
-        subtask.ReopenedAt = DateTime.UtcNow;
-        subtask.ReopenedBy = context.User;
+        subtask.Status = "pending";
 
         var result = new
         {
             SubtaskId = id,
             Title = subtask.Title,
-            ReopenedAt = subtask.ReopenedAt,
             Reason = reason
         };
 
@@ -216,23 +235,4 @@ public class ReopenSubtaskHandler : CommandHandler<ReopenSubtaskArgs>
 
         return await Task.FromResult(CommandResult.Ok(message, result));
     }
-}
-
-// Helper class for subtask data
-public class Subtask
-{
-    public string Id { get; set; } = "";
-    public string Title { get; set; } = "";
-    public bool IsCompleted { get; set; }
-    public TimeSpan? Estimate { get; set; }
-    public TimeSpan? TimeSpent { get; set; }
-    public List<string> Dependencies { get; set; } = new();
-    public string? Assignee { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public string CreatedBy { get; set; } = "";
-    public DateTime? CompletedAt { get; set; }
-    public string? CompletedBy { get; set; }
-    public string? CompletionNotes { get; set; }
-    public DateTime? ReopenedAt { get; set; }
-    public string? ReopenedBy { get; set; }
 }

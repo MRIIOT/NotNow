@@ -33,7 +33,7 @@ public class CommandAutoCompleter : ICommandAutoCompleter
         // If input ends with space, we're looking for parameter/option suggestions
         if (input.EndsWith(" "))
         {
-            return GetParameterSuggestions(parts[0], context);
+            return GetParameterSuggestions(parts, context);
         }
 
         // Still typing command name
@@ -52,37 +52,128 @@ public class CommandAutoCompleter : ICommandAutoCompleter
         {
             return GetShortOptionSuggestions(parts[0], lastPart.Substring(1));
         }
-
-        return new List<string>();
+        else
+        {
+            // Partial word completion for subcommands
+            return GetSubcommandSuggestions(parts);
+        }
     }
 
-    private List<string> GetParameterSuggestions(string commandName, CommandContext context)
+    private List<string> GetParameterSuggestions(string[] parts, CommandContext context)
     {
+        var commandName = parts[0];
         var command = _registry.GetCommand(commandName);
         if (command == null || !command.Context.HasFlag(context))
             return new List<string>();
 
         var suggestions = new List<string>();
 
-        // Add parameter hints
-        var requiredParams = command.Schema.Parameters
-            .Where(p => p.Required)
-            .Select(p => $"<{p.Name}>")
-            .ToList();
+        // Check how many non-option parameters we already have
+        var nonOptionParts = parts.Skip(1).Where(p => !p.StartsWith("-")).ToList();
 
-        if (requiredParams.Any())
+        // Special handling for commands with subcommands
+        if (commandName.Equals("subtask", StringComparison.OrdinalIgnoreCase))
         {
-            suggestions.Add(string.Join(" ", requiredParams));
+            if (nonOptionParts.Count == 0)
+            {
+                // First parameter - show actions
+                suggestions.Add("add");
+                suggestions.Add("complete");
+                suggestions.Add("remove");
+                suggestions.Add("list");
+            }
+            else if (nonOptionParts[0].Equals("add", StringComparison.OrdinalIgnoreCase))
+            {
+                if (nonOptionParts.Count == 1)
+                {
+                    suggestions.Add("\"<title>\"");
+                }
+            }
+        }
+        else if (commandName.Equals("status", StringComparison.OrdinalIgnoreCase) && nonOptionParts.Count == 0)
+        {
+            suggestions.Add("todo");
+            suggestions.Add("in_progress");
+            suggestions.Add("done");
+            suggestions.Add("blocked");
+        }
+        else if (commandName.Equals("priority", StringComparison.OrdinalIgnoreCase) && nonOptionParts.Count == 0)
+        {
+            suggestions.Add("low");
+            suggestions.Add("medium");
+            suggestions.Add("high");
+            suggestions.Add("critical");
+        }
+        else if (commandName.Equals("type", StringComparison.OrdinalIgnoreCase) && nonOptionParts.Count == 0)
+        {
+            suggestions.Add("bug");
+            suggestions.Add("feature");
+            suggestions.Add("task");
+            suggestions.Add("enhancement");
+        }
+        else if (commandName.Equals("assign", StringComparison.OrdinalIgnoreCase) && nonOptionParts.Count == 0)
+        {
+            suggestions.Add("@<username>");
+        }
+        else
+        {
+            // Generic parameter hints
+            var remainingParams = command.Schema.Parameters.Skip(nonOptionParts.Count);
+            foreach (var param in remainingParams.Take(1))
+            {
+                if (param.Required)
+                    suggestions.Add($"<{param.Name}>");
+            }
         }
 
-        // Add common options
+        // Always add available options
         foreach (var option in command.Schema.Options)
         {
-            suggestions.Add($"--{option.LongName}");
-            if (!string.IsNullOrEmpty(option.ShortName))
+            // Don't suggest options that are already in the command
+            if (!parts.Any(p => p.Equals($"--{option.LongName}", StringComparison.OrdinalIgnoreCase)))
+            {
+                suggestions.Add($"--{option.LongName}");
+            }
+            if (!string.IsNullOrEmpty(option.ShortName) &&
+                !parts.Any(p => p.Equals($"-{option.ShortName}", StringComparison.OrdinalIgnoreCase)))
             {
                 suggestions.Add($"-{option.ShortName}");
             }
+        }
+
+        return suggestions;
+    }
+
+    private List<string> GetSubcommandSuggestions(string[] parts)
+    {
+        var commandName = parts[0];
+        var lastPart = parts[^1];
+        var suggestions = new List<string>();
+
+        // Special handling for subtask command
+        if (commandName.Equals("subtask", StringComparison.OrdinalIgnoreCase))
+        {
+            if (parts.Length == 2)
+            {
+                // Completing the action
+                var actions = new[] { "add", "complete", "remove", "list" };
+                suggestions.AddRange(actions.Where(a => a.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase)));
+            }
+        }
+        else if (commandName.Equals("status", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
+        {
+            var statuses = new[] { "todo", "in_progress", "done", "blocked" };
+            suggestions.AddRange(statuses.Where(s => s.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase)));
+        }
+        else if (commandName.Equals("priority", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
+        {
+            var priorities = new[] { "low", "medium", "high", "critical" };
+            suggestions.AddRange(priorities.Where(p => p.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase)));
+        }
+        else if (commandName.Equals("type", StringComparison.OrdinalIgnoreCase) && parts.Length == 2)
+        {
+            var types = new[] { "bug", "feature", "task", "enhancement" };
+            suggestions.AddRange(types.Where(t => t.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase)));
         }
 
         return suggestions;

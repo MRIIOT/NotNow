@@ -29,6 +29,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommandExecutor, CommandExecutor>();
         services.AddSingleton<ICommandInitializationService, CommandInitializationService>();
         services.AddScoped<ICommandPostingService, CommandPostingService>();
+        services.AddScoped<IIssueStateParser, IssueStateParser>();
+        services.AddSingleton<IIssueStateService, IssueStateService>();
 
         // Register core modules
         if (options.RegisterCoreModules)
