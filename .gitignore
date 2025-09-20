@@ -1,0 +1,7 @@
+/NotNow.Console/bin
+/NotNow.Console/obj
+/NotNow.Core/bin
+/NotNow.Core/obj
+/NotNow.GitHubService/bin
+/NotNow.GitHubService/obj
+NotNow.Console/appsettings.json

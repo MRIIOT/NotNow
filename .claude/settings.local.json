@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__serena__activate_project",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(dotnet build)",
+      "Bash(dotnet sln:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "serena"
+  ]
+}
