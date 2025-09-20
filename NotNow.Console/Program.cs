@@ -206,8 +206,8 @@ class Program
                 Console.ResetColor();
             }
 
-            // Post the command to GitHub
-            if (result.Results.Any())
+            // Post the command to GitHub only if at least one command succeeded
+            if (result.Results.Any(r => r.Success))
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("\nPosting command to GitHub...");
@@ -228,6 +228,12 @@ class Program
                     Console.ForegroundColor = ConsoleColor.Yellow;
                     Console.WriteLine("⚠ Failed to post command to GitHub (command still executed locally)");
                 }
+                Console.ResetColor();
+            }
+            else if (result.Results.Any())
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("\n(Command not posted to GitHub due to errors)");
                 Console.ResetColor();
             }
         }
