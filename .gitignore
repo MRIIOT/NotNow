@@ -5,3 +5,6 @@
 /NotNow.GitHubService/bin
 /NotNow.GitHubService/obj
 NotNow.Console/appsettings.json
+/NotNow.Quake/bin
+/NotNow.Quake/obj
+NotNow.Quake/appsettings.json

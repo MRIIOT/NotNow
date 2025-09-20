@@ -167,7 +167,7 @@ public class UpdateCommandHandler : CommandHandler<UpdateArgs>
     public override async Task<CommandResult> ExecuteAsync(CommandExecutionContext context, UpdateArgs args)
     {
         var message = args.GetParameter<string>("message");
-        var progress = args.GetOption<int>("progress");
+        var progress = args.GetOption<int?>("progress");
         var blockers = args.GetOption<string>("blockers");
         var nextSteps = args.GetOption<string>("next");
 

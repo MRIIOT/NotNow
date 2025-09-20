@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="NotNow.Quake.Views.TerminalPage"
+             Title=""
+             BackgroundColor="#0C0C0C">
+
+    <Grid Padding="10" RowSpacing="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Main Content Area -->
+        <Border Grid.Row="0"
+                StrokeThickness="1"
+                Stroke="#00FF00"
+                BackgroundColor="#1A1A1A">
+            <Grid ColumnSpacing="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.25*" />
+                    <ColumnDefinition Width="1" />
+                    <ColumnDefinition Width="0.45*" />
+                    <ColumnDefinition Width="1" />
+                    <ColumnDefinition Width="0.30*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Issues List -->
+                <Grid Grid.Column="0" Padding="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0"
+                           Text="ISSUES"
+                           TextColor="#00FF00"
+                           FontFamily="CascadiaMono"
+                           FontSize="12"
+                           Margin="0,0,0,5" />
+
+                    <CollectionView Grid.Row="1"
+                                    x:Name="IssuesListView"
+                                    SelectionMode="Single"
+                                    ItemsSource="{Binding Issues}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Label Grid.Column="0"
+                                           Text="▶"
+                                           TextColor="#00FF00"
+                                           FontFamily="CascadiaMono"
+                                           IsVisible="{Binding IsSelected}" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding DisplayText}"
+                                           TextColor="#00FF00"
+                                           FontFamily="CascadiaMono"
+                                           FontSize="11" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+
+                <!-- Vertical Separator -->
+                <BoxView Grid.Column="1" Color="#00FF00" />
+
+                <!-- Issue Details -->
+                <ScrollView Grid.Column="2" Padding="10">
+                    <StackLayout Spacing="10">
+                        <Label Text="ISSUE DETAILS"
+                               TextColor="#00FF00"
+                               FontFamily="CascadiaMono"
+                               FontSize="12" />
+
+                        <Label x:Name="IssueTitle"
+                               TextColor="#00FF00"
+                               FontFamily="CascadiaMono"
+                               FontSize="14"
+                               FontAttributes="Bold" />
+
+                        <Grid RowSpacing="5" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Label Grid.Row="0" Grid.Column="0" Text="Status:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="StatusLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+
+                            <Label Grid.Row="1" Grid.Column="0" Text="Priority:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="1" Grid.Column="1" x:Name="PriorityLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+
+                            <Label Grid.Row="2" Grid.Column="0" Text="Assignee:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="AssigneeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+
+                            <Label Grid.Row="3" Grid.Column="0" Text="Due:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="3" Grid.Column="1" x:Name="DueLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+
+                            <Label Grid.Row="4" Grid.Column="0" Text="Estimate:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="4" Grid.Column="1" x:Name="EstimateLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                        </Grid>
+
+                        <BoxView Color="#00FF00" HeightRequest="1" Margin="0,5" />
+
+                        <Label Text="──────── Time Tracking ──────"
+                               TextColor="#00FF00"
+                               FontFamily="CascadiaMono"
+                               FontSize="11"
+                               HorizontalTextAlignment="Center" />
+
+                        <Grid RowSpacing="5" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Label Grid.Row="0" Grid.Column="0" Text="Total:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="TotalTimeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+
+                            <Label Grid.Row="1" Grid.Column="0" Text="Today:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="1" Grid.Column="1" x:Name="TodayTimeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+
+                            <Label Grid.Row="2" Grid.Column="0" Text="This week:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="WeekTimeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                        </Grid>
+
+                        <BoxView Color="#00FF00" HeightRequest="1" Margin="0,5" />
+
+                        <Label Text="───────── Subtasks ──────────"
+                               TextColor="#00FF00"
+                               FontFamily="CascadiaMono"
+                               FontSize="11"
+                               HorizontalTextAlignment="Center" />
+
+                        <StackLayout x:Name="SubtasksList" Spacing="3" />
+
+                        <Grid Margin="0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Text="Progress: " TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
+                            <ProgressBar Grid.Column="1"
+                                         x:Name="ProgressBar"
+                                         ProgressColor="#00FF00"
+                                         BackgroundColor="#003300"
+                                         HeightRequest="15" />
+                        </Grid>
+                    </StackLayout>
+                </ScrollView>
+
+                <!-- Vertical Separator -->
+                <BoxView Grid.Column="3" Color="#00FF00" />
+
+                <!-- Comments/Notes -->
+                <Grid Grid.Column="4" Padding="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0"
+                           Text="COMMENTS/NOTES"
+                           TextColor="#00FF00"
+                           FontFamily="CascadiaMono"
+                           FontSize="12"
+                           Margin="0,0,0,5" />
+
+                    <ScrollView Grid.Row="1">
+                        <StackLayout x:Name="CommentsList" Spacing="10" />
+                    </ScrollView>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Command Input -->
+        <Border Grid.Row="1"
+                StrokeThickness="1"
+                Stroke="#00FF00"
+                BackgroundColor="#1A1A1A"
+                Padding="5,3">
+            <Grid ColumnSpacing="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Label Grid.Column="0"
+                       Text="/notnow"
+                       TextColor="#00FF00"
+                       FontFamily="CascadiaMono"
+                       VerticalTextAlignment="Center" />
+
+                <Entry Grid.Column="1"
+                       x:Name="CommandInput"
+                       TextColor="#00FF00"
+                       BackgroundColor="Transparent"
+                       FontFamily="CascadiaMono"
+                       Placeholder="Enter command..."
+                       PlaceholderColor="#006600"
+                       Completed="OnCommandCompleted"
+                       TextChanged="OnCommandTextChanged" />
+
+                <Label Grid.Column="2"
+                       Text="▼"
+                       TextColor="#00FF00"
+                       FontFamily="CascadiaMono"
+                       VerticalTextAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Autocomplete Suggestions -->
+        <Border Grid.Row="2"
+                x:Name="SuggestionsPanel"
+                StrokeThickness="1"
+                Stroke="#00FF00"
+                BackgroundColor="#1A1A1A"
+                Padding="5"
+                IsVisible="False">
+            <StackLayout x:Name="SuggestionsList" Spacing="2" />
+        </Border>
+
+        <!-- Logo and Toggle Hint -->
+        <Grid Grid.Row="1" HorizontalOptions="End" VerticalOptions="End" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Label Grid.Column="0"
+                   Text="Press CTRL+~ to toggle"
+                   TextColor="#006600"
+                   FontFamily="CascadiaMono"
+                   FontSize="10"
+                   VerticalTextAlignment="Center"
+                   Margin="0,0,10,0" />
+
+            <Image Grid.Column="1"
+                   Source="notnow_logo_square.png"
+                   WidthRequest="30"
+                   HeightRequest="30"
+                   Aspect="AspectFit" />
+        </Grid>
+    </Grid>
+</ContentPage>

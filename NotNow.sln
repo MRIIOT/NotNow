@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotNow.Console", "NotNow.Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotNow.Core", "NotNow.Core\NotNow.Core.csproj", "{0204EAC6-1EB0-4E7B-B049-CE5353252F07}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotNow.Quake", "NotNow.Quake\NotNow.Quake.csproj", "{096727FE-2A6D-4A5C-BD95-C72998852424}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{0204EAC6-1EB0-4E7B-B049-CE5353252F07}.Release|x64.Build.0 = Release|Any CPU
 		{0204EAC6-1EB0-4E7B-B049-CE5353252F07}.Release|x86.ActiveCfg = Release|Any CPU
 		{0204EAC6-1EB0-4E7B-B049-CE5353252F07}.Release|x86.Build.0 = Release|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Debug|x64.Build.0 = Debug|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Debug|x86.Build.0 = Debug|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Release|Any CPU.Build.0 = Release|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Release|x64.ActiveCfg = Release|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Release|x64.Build.0 = Release|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Release|x86.ActiveCfg = Release|Any CPU
+		{096727FE-2A6D-4A5C-BD95-C72998852424}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
