@@ -16,7 +16,13 @@
       "mcp__serena__write_memory",
       "mcp__serena__think_about_whether_you_are_done",
       "Bash(copy notnow_logo_square.png NotNow.QuakeResourcesImagesnotnow_logo_square.png)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "mcp__serena__replace_symbol_body",
+      "Bash(dir:*)",
+      "Bash(cmd /c \"dir C:\\source\\personal\\NotNow\\NotNow.Quake\\*.md\")",
+      "Bash(cmd /c:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

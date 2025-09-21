@@ -123,4 +123,50 @@ public class GitHubService : IGitHubService
             throw new Exception($"Error adding comment to issue #{issueNumber}: {ex.Message}", ex);
         }
     }
+
+    public async Task<Issue> CloseIssueAsync(int issueNumber)
+    {
+        try
+        {
+            var issueUpdate = new IssueUpdate
+            {
+                State = ItemState.Closed
+            };
+
+            var issue = await _client.Issue.Update(
+                _settings.Owner,
+                _settings.Repository,
+                issueNumber,
+                issueUpdate);
+
+            return issue;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error closing issue #{issueNumber}: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<Issue> ReopenIssueAsync(int issueNumber)
+    {
+        try
+        {
+            var issueUpdate = new IssueUpdate
+            {
+                State = ItemState.Open
+            };
+
+            var issue = await _client.Issue.Update(
+                _settings.Owner,
+                _settings.Repository,
+                issueNumber,
+                issueUpdate);
+
+            return issue;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error reopening issue #{issueNumber}: {ex.Message}", ex);
+        }
+    }
 }

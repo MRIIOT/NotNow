@@ -43,17 +43,36 @@ public partial class App : Application
 #if WINDOWS
 	private void RegisterHotKey(Microsoft.Maui.Handlers.WindowHandler handler)
 	{
-		// Simple timer-based approach to check for hotkey
-		// For production, you'd want to use proper Windows global hotkey registration
-		var timer = new System.Threading.Timer(_ =>
+		// Start a background timer to check for CTRL+~ hotkey combination
+		// This is a simplified approach - for production use RegisterHotKey Win32 API
+		var timer = Application.Current?.Dispatcher.CreateTimer();
+		if (timer != null)
 		{
-			// Simple check for CTRL key state (tilde detection simplified for now)
-			var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
-			if ((ctrlState & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down)
+			timer.Interval = TimeSpan.FromMilliseconds(100);
+			timer.Tick += (s, e) =>
 			{
-				MainThread.BeginInvokeOnMainThread(() => ToggleVisibility());
-			}
-		}, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+				try
+				{
+					// Check if CTRL and Tilde (~) keys are pressed
+					var ctrlState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
+					var tildeState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread((VirtualKey)192); // OEM3 is tilde key
+
+					if ((ctrlState & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down &&
+						(tildeState & CoreVirtualKeyStates.Down) == CoreVirtualKeyStates.Down)
+					{
+						// Prevent multiple triggers
+						timer.Stop();
+						ToggleVisibility();
+						Task.Delay(500).ContinueWith(_ => timer.Start());
+					}
+				}
+				catch
+				{
+					// Silently ignore any errors in hotkey detection
+				}
+			};
+			timer.Start();
+		}
 	}
 
 	private void ToggleVisibility()
@@ -66,6 +85,12 @@ public partial class App : Application
 		var handle = WinRT.Interop.WindowNative.GetWindowHandle(handler.PlatformView);
 		var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(handle);
 		var appWindow = AppWindow.GetFromWindowId(windowId);
+
+		// Ensure window stays on top
+		if (appWindow.Presenter is OverlappedPresenter presenter)
+		{
+			presenter.IsAlwaysOnTop = true;
+		}
 
 		if (_isVisible)
 		{
@@ -88,24 +113,31 @@ public partial class App : Application
 		var workAreaWidth = displayArea.WorkArea.Width;
 		var workAreaHeight = displayArea.WorkArea.Height;
 		var targetHeight = (int)(workAreaHeight * 0.6);
+		int animationSteps = 15;
+		int stepDelay = 15; // milliseconds
 
 		if (hide)
 		{
-			// Slide up
-			for (int y = 0; y >= -targetHeight; y -= 20)
+			// Slide up and hide
+			int stepSize = targetHeight / animationSteps;
+			for (int i = 0; i <= animationSteps; i++)
 			{
+				int y = -(i * stepSize);
 				appWindow.MoveAndResize(new RectInt32 { X = 0, Y = y, Width = workAreaWidth, Height = targetHeight });
-				await Task.Delay(10);
+				if (i < animationSteps) await Task.Delay(stepDelay);
 			}
 			appWindow.Hide();
 		}
 		else
 		{
-			// Slide down
-			for (int y = -targetHeight; y <= 0; y += 20)
+			// Show and slide down
+			appWindow.Show();
+			int stepSize = targetHeight / animationSteps;
+			for (int i = animationSteps; i >= 0; i--)
 			{
+				int y = -(i * stepSize);
 				appWindow.MoveAndResize(new RectInt32 { X = 0, Y = y, Width = workAreaWidth, Height = targetHeight });
-				await Task.Delay(10);
+				if (i > 0) await Task.Delay(stepDelay);
 			}
 		}
 	}

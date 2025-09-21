@@ -9,13 +9,12 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Main Content Area -->
         <Border Grid.Row="0"
                 StrokeThickness="1"
-                Stroke="#00FF00"
+                Stroke="#4A9EFF"
                 BackgroundColor="#1A1A1A">
             <Grid ColumnSpacing="1">
                 <Grid.ColumnDefinitions>
@@ -33,12 +32,47 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Label Grid.Row="0"
-                           Text="ISSUES"
-                           TextColor="#00FF00"
-                           FontFamily="CascadiaMono"
-                           FontSize="12"
-                           Margin="0,0,0,5" />
+                    <!-- Issues Header with Toolbar -->
+                    <Grid Grid.Row="0" Margin="0,0,0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Label Grid.Column="0"
+                               Text="ISSUES"
+                               TextColor="#E0E0E0"
+                               FontFamily="CascadiaMono"
+                               FontSize="14"
+                               VerticalTextAlignment="Center" />
+
+                        <!-- Toolbar -->
+                        <HorizontalStackLayout Grid.Column="1"
+                                               Spacing="5"
+                                               VerticalOptions="Center">
+                            <!-- Add Issue Button -->
+                            <Border x:Name="AddIssueButton"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label Text="&#xE148;"
+                                       TextColor="#4A9EFF"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnAddIssueClicked" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+                        </HorizontalStackLayout>
+                    </Grid>
 
                     <CollectionView Grid.Row="1"
                                     x:Name="IssuesListView"
@@ -49,18 +83,36 @@
                                 <Grid Padding="2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="20" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
+
+                                    <!-- Selection indicator -->
                                     <Label Grid.Column="0"
                                            Text="▶"
-                                           TextColor="#00FF00"
+                                           TextColor="#4A9EFF"
                                            FontFamily="CascadiaMono"
                                            IsVisible="{Binding IsSelected}" />
+
+                                    <!-- Checkbox -->
                                     <Label Grid.Column="1"
-                                           Text="{Binding DisplayText}"
-                                           TextColor="#00FF00"
+                                           Text="{Binding CheckboxText}"
+                                           TextColor="{Binding TextColor}"
                                            FontFamily="CascadiaMono"
-                                           FontSize="11" />
+                                           FontSize="13">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnIssueCheckboxTapped"
+                                                                  CommandParameter="{Binding}" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+
+                                    <!-- Issue text -->
+                                    <Label Grid.Column="2"
+                                           Text="{Binding DisplayText}"
+                                           TextColor="{Binding TextColor}"
+                                           TextDecorations="{Binding TextDecorations}"
+                                           FontFamily="CascadiaMono"
+                                           FontSize="13" />
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
@@ -68,22 +120,36 @@
                 </Grid>
 
                 <!-- Vertical Separator -->
-                <BoxView Grid.Column="1" Color="#00FF00" />
+                <BoxView Grid.Column="1" Color="#4A9EFF" />
 
                 <!-- Issue Details -->
                 <ScrollView Grid.Column="2" Padding="10">
                     <StackLayout Spacing="10">
                         <Label Text="ISSUE DETAILS"
-                               TextColor="#00FF00"
+                               TextColor="#E0E0E0"
                                FontFamily="CascadiaMono"
-                               FontSize="12" />
+                               FontSize="14" />
 
                         <Label x:Name="IssueTitle"
-                               TextColor="#00FF00"
+                               TextColor="#FFFFFF"
                                FontFamily="CascadiaMono"
-                               FontSize="14"
+                               FontSize="16"
                                FontAttributes="Bold" />
 
+                        <!-- Issue Description/Body -->
+                        <Frame BackgroundColor="#2A2A2A"
+                               BorderColor="#4A9EFF"
+                               CornerRadius="5"
+                               Padding="10"
+                               Margin="0,5,0,10"
+                               HasShadow="False">
+                            <Label x:Name="IssueDescription"
+                                   TextColor="#E0E0E0"
+                                   FontFamily="CascadiaMono"
+                                   FontSize="13"
+                                   LineBreakMode="WordWrap" />
+                        </Frame>
+
                         <Grid RowSpacing="5" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -97,168 +163,624 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <Label Grid.Row="0" Grid.Column="0" Text="Status:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="0" Grid.Column="1" x:Name="StatusLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="0" Grid.Column="0" Text="Status:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
+                            <Label Grid.Row="0" Grid.Column="1" x:Name="StatusLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" />
 
-                            <Label Grid.Row="1" Grid.Column="0" Text="Priority:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="1" Grid.Column="1" x:Name="PriorityLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="1" Grid.Column="0" Text="Priority:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
+                            <Label Grid.Row="1" Grid.Column="1" x:Name="PriorityLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" />
 
-                            <Label Grid.Row="2" Grid.Column="0" Text="Assignee:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="2" Grid.Column="1" x:Name="AssigneeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="2" Grid.Column="0" Text="Assignee:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
+                            <Label Grid.Row="2" Grid.Column="1" x:Name="AssigneeLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" />
 
-                            <Label Grid.Row="3" Grid.Column="0" Text="Due:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="3" Grid.Column="1" x:Name="DueLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="3" Grid.Column="0" Text="Due:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
+                            <Label Grid.Row="3" Grid.Column="1" x:Name="DueLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" />
 
-                            <Label Grid.Row="4" Grid.Column="0" Text="Estimate:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="4" Grid.Column="1" x:Name="EstimateLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                            <Label Grid.Row="4" Grid.Column="0" Text="Estimate:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
+                            <Label Grid.Row="4" Grid.Column="1" x:Name="EstimateLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" />
                         </Grid>
 
-                        <BoxView Color="#00FF00" HeightRequest="1" Margin="0,5" />
+                        <BoxView Color="#2A2A2A" HeightRequest="1" Margin="0,10" />
 
-                        <Label Text="──────── Time Tracking ──────"
-                               TextColor="#00FF00"
-                               FontFamily="CascadiaMono"
-                               FontSize="11"
-                               HorizontalTextAlignment="Center" />
-
-                        <Grid RowSpacing="5" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <!-- Tabbed View for Subtasks and Time Tracking -->
+                        <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
-                            <Label Grid.Row="0" Grid.Column="0" Text="Total:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="0" Grid.Column="1" x:Name="TotalTimeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                            <!-- Tab Headers -->
+                            <HorizontalStackLayout Grid.Row="0" Spacing="0">
+                                <Border x:Name="SubtasksTab"
+                                        BackgroundColor="#2A2A2A"
+                                        StrokeThickness="0"
+                                        Padding="10,5">
+                                    <Label Text="SUBTASKS"
+                                           TextColor="#FFFFFF"
+                                           FontFamily="CascadiaMono"
+                                           FontSize="13">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnSubtasksTabTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
 
-                            <Label Grid.Row="1" Grid.Column="0" Text="Today:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="1" Grid.Column="1" x:Name="TodayTimeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
+                                <Border x:Name="TimeTrackingTab"
+                                        BackgroundColor="#1A1A1A"
+                                        StrokeThickness="0"
+                                        Padding="10,5">
+                                    <Label Text="TIME TRACKING"
+                                           TextColor="#808080"
+                                           FontFamily="CascadiaMono"
+                                           FontSize="13">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnTimeTrackingTabTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                            </HorizontalStackLayout>
 
-                            <Label Grid.Row="2" Grid.Column="0" Text="This week:" TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <Label Grid.Row="2" Grid.Column="1" x:Name="WeekTimeLabel" TextColor="#00FF00" FontFamily="CascadiaMono" FontSize="11" />
-                        </Grid>
+                            <!-- Tab Content -->
+                            <Border Grid.Row="1"
+                                    StrokeThickness="0"
+                                    BackgroundColor="#1A1A1A"
+                                    Padding="10">
+                                <Grid>
+                                    <!-- Subtasks Content -->
+                                    <Grid x:Name="SubtasksContent" IsVisible="True">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
-                        <BoxView Color="#00FF00" HeightRequest="1" Margin="0,5" />
+                                        <!-- Subtasks List -->
+                                        <StackLayout Grid.Column="0" x:Name="SubtasksList" Spacing="5" />
 
-                        <Label Text="───────── Subtasks ──────────"
-                               TextColor="#00FF00"
-                               FontFamily="CascadiaMono"
-                               FontSize="11"
-                               HorizontalTextAlignment="Center" />
+                                        <!-- Vertical Toolbar -->
+                                        <Grid Grid.Column="1"
+                                              Margin="10,0,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
 
-                        <StackLayout x:Name="SubtasksList" Spacing="3" />
+                                            <!-- Input Panel (hidden by default, appears to left of button) -->
+                                            <Border Grid.Column="0"
+                                                    x:Name="SubtaskInputPanel"
+                                                    IsVisible="False"
+                                                    BackgroundColor="#1A1A1A"
+                                                    StrokeThickness="1"
+                                                    Stroke="#4A9EFF"
+                                                    Padding="5"
+                                                    WidthRequest="250"
+                                                    Margin="0,0,10,0"
+                                                    VerticalOptions="Start">
+                                                <StackLayout Spacing="5">
+                                                    <!-- Title Input -->
+                                                    <Label Text="Title (required):"
+                                                           TextColor="#808080"
+                                                           FontFamily="CascadiaMono"
+                                                           FontSize="11" />
+                                                    <Entry x:Name="SubtaskTitleInput"
+                                                           TextColor="#FFFFFF"
+                                                           BackgroundColor="#2A2A2A"
+                                                           FontFamily="CascadiaMono"
+                                                           FontSize="12"
+                                                           Placeholder="Enter subtask title..."
+                                                           PlaceholderColor="#606060" />
 
-                        <Grid Margin="0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Label Grid.Column="0" Text="Progress: " TextColor="#008800" FontFamily="CascadiaMono" FontSize="11" />
-                            <ProgressBar Grid.Column="1"
-                                         x:Name="ProgressBar"
-                                         ProgressColor="#00FF00"
-                                         BackgroundColor="#003300"
-                                         HeightRequest="15" />
+                                                    <!-- Estimate Input -->
+                                                    <Label Text="Estimate (optional):"
+                                                           TextColor="#808080"
+                                                           FontFamily="CascadiaMono"
+                                                           FontSize="11" />
+                                                    <Entry x:Name="SubtaskEstimateInput"
+                                                           TextColor="#FFFFFF"
+                                                           BackgroundColor="#2A2A2A"
+                                                           FontFamily="CascadiaMono"
+                                                           FontSize="12"
+                                                           Placeholder="e.g., 2h30m"
+                                                           PlaceholderColor="#606060" />
+
+                                                    <!-- Action Buttons -->
+                                                    <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                                        <!-- Cancel Button -->
+                                                        <Border BackgroundColor="#2A2A2A"
+                                                                StrokeThickness="0"
+                                                                HeightRequest="25"
+                                                                WidthRequest="25">
+                                                            <Label Text="&#xE14C;"
+                                                                   TextColor="#FF4444"
+                                                                   FontFamily="MaterialIcons"
+                                                                   FontSize="18"
+                                                                   HorizontalOptions="Center"
+                                                                   VerticalOptions="Center"
+                                                                   HorizontalTextAlignment="Center"
+                                                                   VerticalTextAlignment="Center">
+                                                                <Label.GestureRecognizers>
+                                                                    <TapGestureRecognizer Tapped="OnCancelSubtaskInput" />
+                                                                </Label.GestureRecognizers>
+                                                            </Label>
+                                                        </Border>
+
+                                                        <!-- Submit Button -->
+                                                        <Border BackgroundColor="#2A2A2A"
+                                                                StrokeThickness="0"
+                                                                HeightRequest="25"
+                                                                WidthRequest="25">
+                                                            <Label Text="&#xE31B;"
+                                                                   TextColor="#4A9EFF"
+                                                                   FontFamily="MaterialIcons"
+                                                                   FontSize="18"
+                                                                   HorizontalOptions="Center"
+                                                                   VerticalOptions="Center"
+                                                                   HorizontalTextAlignment="Center"
+                                                                   VerticalTextAlignment="Center">
+                                                                <Label.GestureRecognizers>
+                                                                    <TapGestureRecognizer Tapped="OnSubmitSubtask" />
+                                                                </Label.GestureRecognizers>
+                                                            </Label>
+                                                        </Border>
+                                                    </HorizontalStackLayout>
+                                                </StackLayout>
+                                            </Border>
+
+                                            <!-- Add Task Button (always in same position) -->
+                                            <StackLayout Grid.Column="1"
+                                                         Orientation="Vertical"
+                                                         Spacing="5">
+                                                <Border x:Name="AddTaskButton"
+                                                        BackgroundColor="#2A2A2A"
+                                                        StrokeThickness="1"
+                                                        Stroke="#4A9EFF"
+                                                        HeightRequest="30"
+                                                        WidthRequest="30"
+                                                        VerticalOptions="Start">
+                                                    <Label Text="&#xF23A;"
+                                                           TextColor="#4A9EFF"
+                                                           FontFamily="MaterialIcons"
+                                                           FontSize="20"
+                                                           HorizontalOptions="Center"
+                                                           VerticalOptions="Center"
+                                                           HorizontalTextAlignment="Center"
+                                                           VerticalTextAlignment="Center">
+                                                        <Label.GestureRecognizers>
+                                                            <TapGestureRecognizer Tapped="OnAddSubtaskClicked" />
+                                                        </Label.GestureRecognizers>
+                                                    </Label>
+                                                </Border>
+                                            </StackLayout>
+                                        </Grid>
+                                    </Grid>
+
+                                    <!-- Time Tracking Content -->
+                                    <Grid x:Name="TimeTrackingContent" IsVisible="False">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Label Grid.Row="0" Grid.Column="0" Text="Total Time:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" Margin="0,0,15,8" />
+                                        <Label Grid.Row="0" Grid.Column="1" x:Name="TotalTimeLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" Margin="0,0,0,8" />
+
+                                        <Label Grid.Row="1" Grid.Column="0" Text="Today:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" Margin="0,0,15,8" />
+                                        <Label Grid.Row="1" Grid.Column="1" x:Name="TodayTimeLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" Margin="0,0,0,8" />
+
+                                        <Label Grid.Row="2" Grid.Column="0" Text="This Week:" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" Margin="0,0,15,0" />
+                                        <Label Grid.Row="2" Grid.Column="1" x:Name="WeekTimeLabel" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="13" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
                         </Grid>
                     </StackLayout>
                 </ScrollView>
 
                 <!-- Vertical Separator -->
-                <BoxView Grid.Column="3" Color="#00FF00" />
+                <BoxView Grid.Column="3" Color="#4A9EFF" />
 
                 <!-- Comments/Notes -->
                 <Grid Grid.Column="4" Padding="5">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <Label Grid.Row="0"
-                           Text="COMMENTS/NOTES"
-                           TextColor="#00FF00"
-                           FontFamily="CascadiaMono"
-                           FontSize="12"
-                           Margin="0,0,0,5" />
+                    <!-- Header with toolbar -->
+                    <Grid Grid.Row="0" Margin="0,0,0,5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <ScrollView Grid.Row="1">
-                        <StackLayout x:Name="CommentsList" Spacing="10" />
-                    </ScrollView>
+                        <Label Grid.Column="0"
+                               Text="COMMENTS/NOTES"
+                               TextColor="#E0E0E0"
+                               FontFamily="CascadiaMono"
+                               FontSize="14"
+                               VerticalTextAlignment="Center" />
+
+                        <!-- Toolbar -->
+                        <HorizontalStackLayout Grid.Column="2"
+                                               Spacing="5"
+                                               VerticalOptions="Center">
+                            <!-- Add Comment Button -->
+                            <Border x:Name="AddCommentButton"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label Text="&#xE266;"
+                                       TextColor="#4A9EFF"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnAddCommentClicked" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+
+                            <!-- Add Note Button -->
+                            <Border x:Name="AddNoteButton"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label Text="&#xE89C;"
+                                       TextColor="#4A9EFF"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnAddNoteClicked" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+
+                            <!-- Command Filter Toggle -->
+                            <Border x:Name="CommandFilterToggleBorder"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label x:Name="CommandFilterToggle"
+                                       Text="&#xE86F;"
+                                       TextColor="#808080"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnCommandFilterToggled" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <ScrollView x:Name="CommentsScrollView">
+                            <StackLayout x:Name="CommentsList" Spacing="10" />
+                        </ScrollView>
+
+                        <!-- Comment Input Panel (hidden by default, appears over comments) -->
+                        <Border x:Name="CommentInputPanel"
+                                IsVisible="False"
+                                BackgroundColor="#1A1A1A"
+                                StrokeThickness="1"
+                                Stroke="#4A9EFF"
+                                Padding="10"
+                                Margin="10"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Fill">
+                            <StackLayout Spacing="8">
+                                <!-- Comment Body Input -->
+                                <Label Text="Comment:"
+                                       TextColor="#808080"
+                                       FontFamily="CascadiaMono"
+                                       FontSize="12" />
+                                <Editor x:Name="CommentBodyInput"
+                                        TextColor="#FFFFFF"
+                                        BackgroundColor="#2A2A2A"
+                                        FontFamily="CascadiaMono"
+                                        FontSize="12"
+                                        Placeholder="Enter your comment..."
+                                        PlaceholderColor="#606060"
+                                        HeightRequest="100"
+                                        AutoSize="TextChanges"
+                                        MaximumHeightRequest="200" />
+
+                                <!-- Markdown Option -->
+                                <HorizontalStackLayout Spacing="5">
+                                    <CheckBox x:Name="MarkdownCheckbox"
+                                              Color="#4A9EFF"
+                                              VerticalOptions="Center" />
+                                    <Label Text="Format as markdown"
+                                           TextColor="#808080"
+                                           FontFamily="CascadiaMono"
+                                           FontSize="12"
+                                           VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+
+                                <!-- Action Buttons -->
+                                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                    <!-- Cancel Button -->
+                                    <Border BackgroundColor="#2A2A2A"
+                                            StrokeThickness="0"
+                                            HeightRequest="30"
+                                            WidthRequest="30">
+                                        <Label Text="&#xE14C;"
+                                               TextColor="#FF4444"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnCancelCommentInput" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- Submit Button -->
+                                    <Border BackgroundColor="#2A2A2A"
+                                            StrokeThickness="0"
+                                            HeightRequest="30"
+                                            WidthRequest="30">
+                                        <Label Text="&#xE31B;"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnSubmitComment" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </StackLayout>
+                        </Border>
+
+                        <!-- Note Input Panel (hidden by default, appears over comments) -->
+                        <Border x:Name="NoteInputPanel"
+                                IsVisible="False"
+                                BackgroundColor="#1A1A1A"
+                                StrokeThickness="1"
+                                Stroke="#4A9EFF"
+                                Padding="10"
+                                Margin="10"
+                                VerticalOptions="Center"
+                                HorizontalOptions="Fill">
+                            <StackLayout Spacing="8">
+                                <!-- Note Title Input (optional) -->
+                                <Label Text="Title (optional):"
+                                       TextColor="#808080"
+                                       FontFamily="CascadiaMono"
+                                       FontSize="12" />
+                                <Entry x:Name="NoteTitleInput"
+                                       TextColor="#FFFFFF"
+                                       BackgroundColor="#2A2A2A"
+                                       FontFamily="CascadiaMono"
+                                       FontSize="12"
+                                       Placeholder="Enter note title..."
+                                       PlaceholderColor="#606060" />
+
+                                <!-- Note Category Input (optional) -->
+                                <Label Text="Category (optional):"
+                                       TextColor="#808080"
+                                       FontFamily="CascadiaMono"
+                                       FontSize="12" />
+                                <Entry x:Name="NoteCategoryInput"
+                                       TextColor="#FFFFFF"
+                                       BackgroundColor="#2A2A2A"
+                                       FontFamily="CascadiaMono"
+                                       FontSize="12"
+                                       Placeholder="e.g., security, decision, todo..."
+                                       PlaceholderColor="#606060" />
+
+                                <!-- Note Content Input (required) -->
+                                <Label Text="Note content (required):"
+                                       TextColor="#808080"
+                                       FontFamily="CascadiaMono"
+                                       FontSize="12" />
+                                <Editor x:Name="NoteContentInput"
+                                        TextColor="#FFFFFF"
+                                        BackgroundColor="#2A2A2A"
+                                        FontFamily="CascadiaMono"
+                                        FontSize="12"
+                                        Placeholder="Enter your note..."
+                                        PlaceholderColor="#606060"
+                                        HeightRequest="100"
+                                        AutoSize="TextChanges"
+                                        MaximumHeightRequest="200" />
+
+                                <!-- Action Buttons -->
+                                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                    <!-- Cancel Button -->
+                                    <Border BackgroundColor="#2A2A2A"
+                                            StrokeThickness="0"
+                                            HeightRequest="30"
+                                            WidthRequest="30">
+                                        <Label Text="&#xE14C;"
+                                               TextColor="#FF4444"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnCancelNoteInput" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- Submit Button -->
+                                    <Border BackgroundColor="#2A2A2A"
+                                            StrokeThickness="0"
+                                            HeightRequest="30"
+                                            WidthRequest="30">
+                                        <Label Text="&#xE31B;"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnSubmitNote" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+                                </HorizontalStackLayout>
+                            </StackLayout>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Grid>
         </Border>
 
-        <!-- Command Input -->
-        <Border Grid.Row="1"
-                StrokeThickness="1"
-                Stroke="#00FF00"
-                BackgroundColor="#1A1A1A"
-                Padding="5,3">
-            <Grid ColumnSpacing="5">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Label Grid.Column="0"
-                       Text="/notnow"
-                       TextColor="#00FF00"
-                       FontFamily="CascadiaMono"
-                       VerticalTextAlignment="Center" />
-
-                <Entry Grid.Column="1"
-                       x:Name="CommandInput"
-                       TextColor="#00FF00"
-                       BackgroundColor="Transparent"
-                       FontFamily="CascadiaMono"
-                       Placeholder="Enter command..."
-                       PlaceholderColor="#006600"
-                       Completed="OnCommandCompleted"
-                       TextChanged="OnCommandTextChanged" />
-
-                <Label Grid.Column="2"
-                       Text="▼"
-                       TextColor="#00FF00"
-                       FontFamily="CascadiaMono"
-                       VerticalTextAlignment="Center" />
-            </Grid>
-        </Border>
-
-        <!-- Autocomplete Suggestions -->
-        <Border Grid.Row="2"
-                x:Name="SuggestionsPanel"
-                StrokeThickness="1"
-                Stroke="#00FF00"
-                BackgroundColor="#1A1A1A"
-                Padding="5"
-                IsVisible="False">
-            <StackLayout x:Name="SuggestionsList" Spacing="2" />
-        </Border>
 
         <!-- Logo and Toggle Hint -->
-        <Grid Grid.Row="1" HorizontalOptions="End" VerticalOptions="End" Margin="10">
+        <Grid Grid.Row="1" HorizontalOptions="Fill" VerticalOptions="Center" Margin="10,5">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Label Grid.Column="0"
                    Text="Press CTRL+~ to toggle"
-                   TextColor="#006600"
+                   TextColor="#606060"
                    FontFamily="CascadiaMono"
-                   FontSize="10"
+                   FontSize="12"
                    VerticalTextAlignment="Center"
-                   Margin="0,0,10,0" />
+                   HorizontalOptions="Start" />
 
             <Image Grid.Column="1"
                    Source="notnow_logo_square.png"
                    WidthRequest="30"
                    HeightRequest="30"
-                   Aspect="AspectFit" />
+                   Aspect="AspectFit"
+                   HorizontalOptions="End" />
         </Grid>
+
+        <!-- Issue Input Panel (overlay, hidden by default) -->
+        <Border x:Name="IssueInputPanel"
+                IsVisible="False"
+                BackgroundColor="#1A1A1A"
+                StrokeThickness="1"
+                Stroke="#4A9EFF"
+                Padding="15"
+                Margin="20"
+                VerticalOptions="Center"
+                HorizontalOptions="Center"
+                WidthRequest="500">
+            <StackLayout Spacing="10">
+                <!-- Panel Title -->
+                <Label Text="Create New Issue"
+                       TextColor="#4A9EFF"
+                       FontFamily="CascadiaMono"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
+
+                <!-- Issue Title Input -->
+                <Label Text="Title (required):"
+                       TextColor="#808080"
+                       FontFamily="CascadiaMono"
+                       FontSize="12" />
+                <Entry x:Name="IssueTitleInput"
+                       TextColor="#FFFFFF"
+                       BackgroundColor="#2A2A2A"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       Placeholder="Enter issue title..."
+                       PlaceholderColor="#606060" />
+
+                <!-- Issue Description Input -->
+                <Label Text="Description (optional):"
+                       TextColor="#808080"
+                       FontFamily="CascadiaMono"
+                       FontSize="12" />
+                <Editor x:Name="IssueDescriptionInput"
+                        TextColor="#FFFFFF"
+                        BackgroundColor="#2A2A2A"
+                        FontFamily="CascadiaMono"
+                        FontSize="12"
+                        Placeholder="Enter issue description..."
+                        PlaceholderColor="#606060"
+                        HeightRequest="150"
+                        AutoSize="TextChanges"
+                        MaximumHeightRequest="250" />
+
+                <!-- Action Buttons -->
+                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                    <!-- Cancel Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="0"
+                            HeightRequest="35"
+                            WidthRequest="80"
+                            Padding="5">
+                        <Label Text="Cancel"
+                               TextColor="#FF4444"
+                               FontFamily="CascadiaMono"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCancelIssueInput" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+
+                    <!-- Create Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="0"
+                            HeightRequest="35"
+                            WidthRequest="80"
+                            Padding="5">
+                        <Label Text="Create"
+                               TextColor="#00FF00"
+                               FontFamily="CascadiaMono"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCreateIssue" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+                </HorizontalStackLayout>
+            </StackLayout>
+        </Border>
     </Grid>
 </ContentPage>

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NotNow.Core.Commands.Framework;
 using NotNow.Core.Models;
 using NotNow.Core.Services;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace NotNow.Core.Commands.Modules.Subtasks;
@@ -59,7 +60,28 @@ public class SubtaskHandler : CommandHandler<SubtaskArgs>
         if (string.IsNullOrEmpty(title))
             return CommandResult.Failure("Title required for adding subtask");
 
-        var id = args.GetOption<string>("id") ?? $"st{subtasks.Count + 1}";
+        string id;
+        if (!string.IsNullOrEmpty(args.GetOption<string>("id")))
+        {
+            id = args.GetOption<string>("id")!;
+        }
+        else
+        {
+            // Generate a unique ID by finding the highest existing st# and incrementing
+            var existingIds = subtasks
+                .Where(s => s.Id?.StartsWith("st") == true)
+                .Select(s =>
+                {
+                    if (int.TryParse(s.Id.Substring(2), out int num))
+                        return num;
+                    return 0;
+                })
+                .DefaultIfEmpty(0)
+                .Max();
+
+            id = $"st{existingIds + 1}";
+        }
+
         var estimate = args.GetOption<string>("estimate");
         var assignee = args.GetOption<string>("assignee");
 

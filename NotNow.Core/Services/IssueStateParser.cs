@@ -117,17 +117,47 @@ public class IssueStateParser : IIssueStateParser
                     break;
 
                 case "complete":
-                    state.Status = "done";
-                    // Mark all subtasks as complete
-                    foreach (var subtask in state.Subtasks)
+                    // Check if completing a specific subtask
+                    if (!string.IsNullOrWhiteSpace(args))
                     {
-                        subtask.Status = "done";
-                        subtask.CompletedAt = timestamp;
+                        var subtaskId = args.Trim();
+                        var subtask = state.Subtasks.FirstOrDefault(s => s.Id == subtaskId);
+                        if (subtask != null)
+                        {
+                            subtask.Status = "done";
+                            subtask.CompletedAt = timestamp;
+                        }
+                    }
+                    else
+                    {
+                        // Completing the entire issue
+                        state.Status = "done";
+                        // Mark all subtasks as complete
+                        foreach (var subtask in state.Subtasks)
+                        {
+                            subtask.Status = "done";
+                            subtask.CompletedAt = timestamp;
+                        }
                     }
                     break;
 
                 case "reopen":
-                    state.Status = "todo";
+                    // Check if reopening a specific subtask
+                    if (!string.IsNullOrWhiteSpace(args))
+                    {
+                        var subtaskId = args.Trim();
+                        var subtask = state.Subtasks.FirstOrDefault(s => s.Id == subtaskId);
+                        if (subtask != null)
+                        {
+                            subtask.Status = "pending";
+                            subtask.CompletedAt = null;
+                        }
+                    }
+                    else
+                    {
+                        // Reopening the entire issue
+                        state.Status = "todo";
+                    }
                     break;
             }
         }
@@ -215,7 +245,18 @@ public class IssueStateParser : IIssueStateParser
             }
             else
             {
-                subtask.Id = $"st{state.Subtasks.Count + 1}";
+                // Generate a unique ID by finding the highest existing st# and incrementing
+                var existingIds = state.Subtasks
+                    .Where(s => s.Id?.StartsWith("st") == true)
+                    .Select(s => {
+                        if (int.TryParse(s.Id.Substring(2), out int num))
+                            return num;
+                        return 0;
+                    })
+                    .DefaultIfEmpty(0)
+                    .Max();
+                
+                subtask.Id = $"st{existingIds + 1}";
             }
 
             // Extract estimate

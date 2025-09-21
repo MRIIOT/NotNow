@@ -22,7 +22,6 @@ A command-line interface for managing GitHub issues with integrated NotNow comma
    {
      "GitHubSettings": {
        "PersonalAccessToken": "ghp_YOUR_GITHUB_PAT_HERE",
-       "RepositoryUrl": "https://github.com/owner/repository",
        "Owner": "repository-owner",
        "Repository": "repository-name"
      }

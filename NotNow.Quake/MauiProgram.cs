@@ -24,6 +24,7 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 				fonts.AddFont("CascadiaMono.ttf", "CascadiaMono");
+				fonts.AddFont("MaterialIcons-Regular.ttf", "MaterialIcons");
 			})
 			.ConfigureLifecycleEvents(events =>
 			{
@@ -35,11 +36,12 @@ public static class MauiProgram
 						var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(handle);
 						var appWindow = AppWindow.GetFromWindowId(windowId);
 
-						// Remove title bar
+						// Remove title bar and set always on top
 						if (appWindow.Presenter is OverlappedPresenter presenter)
 						{
 							presenter.SetBorderAndTitleBar(false, false);
 							presenter.IsResizable = true;
+							presenter.IsAlwaysOnTop = true; // Keep window always on top
 						}
 
 						// Position at top of screen like Quake console
@@ -51,7 +53,7 @@ public static class MauiProgram
 						appWindow.MoveAndResize(new RectInt32
 						{
 							X = 0,
-							Y = -1, // Start just off screen for slide animation
+							Y = 0, // Start at top of screen
 							Width = workAreaWidth,
 							Height = (int)(workAreaHeight * 0.6)
 						});
