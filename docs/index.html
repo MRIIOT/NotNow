@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NotNow - GitHub Issue Management, Elevated</title>
+    <title>NotNow - GitHub Issues That Actually Work</title>
     <style>
         * {
             margin: 0;
@@ -97,16 +97,18 @@
         }
 
         .hero h1 {
-            font-size: 48px;
-            color: #333;
+            font-size: 56px;
             margin-bottom: 20px;
-            font-weight: 700;
+            color: #1a202c;
+            line-height: 1.2;
         }
 
         .hero .subtitle {
             font-size: 24px;
-            color: #666;
-            margin-bottom: 40px;
+            color: #718096;
+            max-width: 800px;
+            margin: 0 auto 40px;
+            line-height: 1.5;
         }
 
         .hero-image {
@@ -114,7 +116,7 @@
             max-width: 900px;
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
         }
 
         .hero-image img {
@@ -123,132 +125,169 @@
             display: block;
         }
 
-        /* Features Grid */
-        .features {
+        .value-props {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin: 60px auto;
+            max-width: 1000px;
+        }
+
+        .value-prop {
+            text-align: left;
+        }
+
+        .value-prop h3 {
+            font-size: 20px;
+            color: #764ba2;
+            margin-bottom: 10px;
+        }
+
+        .value-prop p {
+            color: #4a5568;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* Problem Section */
+        .problem-section {
+            background: #f7fafc;
             padding: 80px 0;
-            background: #f8f9fa;
         }
 
-        .features h2 {
+        .problem-section h2 {
+            font-size: 40px;
             text-align: center;
-            font-size: 36px;
-            color: #333;
-            margin-bottom: 50px;
+            margin-bottom: 60px;
+            color: #1a202c;
         }
 
-        .features-grid {
+        .comparison-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 40px;
             margin-bottom: 60px;
         }
 
-        .feature-card {
+        .comparison-card {
             background: white;
             padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-
-        .feature-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-
-        .feature-card h3 {
+        .comparison-card h3 {
             font-size: 24px;
-            color: #333;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            color: #1a202c;
         }
 
-        .feature-card p {
-            color: #666;
-            line-height: 1.8;
+        .comparison-card.negative h3 {
+            color: #e53e3e;
         }
 
-        /* Protocol Section */
-        .protocol {
+        .comparison-card.positive h3 {
+            color: #48bb78;
+        }
+
+        .comparison-card ul {
+            list-style: none;
+        }
+
+        .comparison-card li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #4a5568;
+        }
+
+        .comparison-card li:before {
+            content: "×";
+            position: absolute;
+            left: 0;
+            color: #e53e3e;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .comparison-card.positive li:before {
+            content: "✓";
+            color: #48bb78;
+        }
+
+        /* Features Section */
+        .features {
             padding: 80px 0;
             background: white;
         }
 
-        .protocol h2 {
+        .features h2 {
+            font-size: 40px;
             text-align: center;
-            font-size: 36px;
-            color: #333;
-            margin-bottom: 50px;
+            margin-bottom: 20px;
+            color: #1a202c;
         }
 
-        .protocol-content {
+        .features-subtitle {
+            text-align: center;
+            font-size: 20px;
+            color: #718096;
+            margin-bottom: 60px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .feature-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
         }
 
-        .protocol-text h3 {
-            font-size: 28px;
-            color: #764ba2;
-            margin-bottom: 20px;
-        }
-
-        .protocol-text p {
-            color: #666;
-            margin-bottom: 20px;
-            font-size: 18px;
-        }
-
-        .command-examples {
-            background: #f8f9fa;
-            padding: 25px;
+        .feature-item {
+            padding: 30px;
+            background: #f8f9ff;
             border-radius: 10px;
-            margin: 30px 0;
+            transition: transform 0.3s;
         }
 
-        .command-examples h4 {
-            color: #333;
+        .feature-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 36px;
             margin-bottom: 15px;
         }
 
-        .command {
-            background: #2d3748;
-            color: #48bb78;
-            padding: 12px 20px;
-            border-radius: 5px;
-            font-family: 'Monaco', 'Courier New', monospace;
-            margin: 10px 0;
-            font-size: 14px;
+        .feature-item h3 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 15px;
         }
 
-        .command-desc {
-            color: #888;
-            font-size: 14px;
-            margin-left: 20px;
-            margin-top: 5px;
+        .feature-item p {
+            color: #4a5568;
+            line-height: 1.6;
         }
 
         /* Screenshots Section */
         .screenshots {
             padding: 80px 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f7fafc;
         }
 
         .screenshots h2 {
+            font-size: 40px;
             text-align: center;
-            font-size: 36px;
-            color: white;
-            margin-bottom: 50px;
+            margin-bottom: 60px;
+            color: #1a202c;
         }
 
         .screenshot-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 30px;
         }
 
@@ -256,106 +295,144 @@
             background: white;
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             transition: transform 0.3s;
         }
 
         .screenshot-item:hover {
-            transform: scale(1.05);
+            transform: translateY(-5px);
         }
 
         .screenshot-item img {
             width: 100%;
-            height: 200px;
-            object-fit: cover;
+            height: auto;
             display: block;
         }
 
         .screenshot-caption {
-            padding: 15px;
-            background: white;
-            text-align: center;
+            padding: 15px 20px;
             font-weight: 600;
-            color: #333;
+            color: #2d3748;
+            background: white;
         }
 
-        /* Getting Started */
-        .getting-started {
+        /* Setup Section */
+        .setup-section {
             padding: 80px 0;
             background: white;
         }
 
-        .getting-started h2 {
+        .setup-section h2 {
+            font-size: 40px;
             text-align: center;
-            font-size: 36px;
-            color: #333;
-            margin-bottom: 50px;
+            margin-bottom: 60px;
+            color: #1a202c;
         }
 
-        .steps {
+        .setup-steps {
             max-width: 800px;
             margin: 0 auto;
         }
 
-        .step {
+        .setup-step {
             display: flex;
-            gap: 30px;
-            margin-bottom: 40px;
             align-items: flex-start;
+            margin-bottom: 30px;
         }
 
         .step-number {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
             font-weight: bold;
+            margin-right: 20px;
             flex-shrink: 0;
         }
 
         .step-content h3 {
-            font-size: 22px;
-            color: #333;
+            font-size: 20px;
             margin-bottom: 10px;
+            color: #2d3748;
         }
 
         .step-content p {
-            color: #666;
-            margin-bottom: 10px;
+            color: #718096;
+            line-height: 1.6;
         }
 
-        .code-block {
+        .code-snippet {
             background: #2d3748;
             color: #e2e8f0;
             padding: 15px;
             border-radius: 5px;
+            margin: 10px 0;
             font-family: 'Monaco', 'Courier New', monospace;
             font-size: 14px;
-            overflow-x: auto;
         }
 
-        /* CTA Section */
-        .cta-section {
+        /* Pricing Section */
+        .pricing {
             padding: 80px 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            text-align: center;
             color: white;
+            text-align: center;
         }
 
-        .cta-section h2 {
-            font-size: 42px;
+        .pricing h2 {
+            font-size: 48px;
             margin-bottom: 20px;
         }
 
-        .cta-section p {
-            font-size: 20px;
-            margin-bottom: 40px;
+        .pricing-subtitle {
+            font-size: 24px;
             opacity: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .pricing-comparison {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        .pricing-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .pricing-row .tool-name {
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .pricing-row .price {
+            font-size: 20px;
+        }
+
+        /* CTA Section */
+        .final-cta {
+            padding: 100px 0;
+            background: white;
+            text-align: center;
+        }
+
+        .final-cta h2 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #1a202c;
+        }
+
+        .final-cta p {
+            font-size: 20px;
+            color: #718096;
+            margin-bottom: 40px;
         }
 
         .cta-buttons {
@@ -365,80 +442,65 @@
             flex-wrap: wrap;
         }
 
-        .btn-primary {
+        .cta-button-large {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: inline-block;
+        }
+
+        .cta-button-large:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(118, 75, 162, 0.4);
+        }
+
+        .secondary-button {
             background: white;
             color: #764ba2;
-            padding: 15px 40px;
-            border-radius: 30px;
-            text-decoration: none;
-            font-size: 18px;
-            font-weight: 600;
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: white;
-            padding: 15px 40px;
-            border: 2px solid white;
-            border-radius: 30px;
-            text-decoration: none;
-            font-size: 18px;
-            font-weight: 600;
-            transition: background 0.3s, transform 0.3s;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255,255,255,0.1);
-            transform: translateY(-3px);
+            border: 2px solid #764ba2;
+            padding: 18px 38px;
         }
 
         /* Footer */
         footer {
-            padding: 40px 0;
             background: #2d3748;
             color: #e2e8f0;
+            padding: 40px 0;
             text-align: center;
         }
 
-        footer p {
-            margin-bottom: 10px;
-        }
-
         footer a {
-            color: #667eea;
+            color: #a0aec0;
             text-decoration: none;
+            margin: 0 15px;
         }
 
         footer a:hover {
-            text-decoration: underline;
+            color: white;
         }
 
-        /* Responsive */
         @media (max-width: 768px) {
             .hero h1 {
                 font-size: 36px;
             }
 
             .hero .subtitle {
-                font-size: 20px;
+                font-size: 18px;
             }
 
-            .protocol-content {
+            .comparison-grid,
+            .feature-grid,
+            .screenshot-grid {
                 grid-template-columns: 1fr;
             }
 
             .nav-links {
                 display: none;
-            }
-
-            .step {
-                flex-direction: column;
             }
         }
     </style>
@@ -451,20 +513,22 @@
                 <img src="assets/notnow_logo_square.png" alt="NotNow Logo">
             </div>
             <ul class="nav-links">
+                <li><a href="#why">Why NotNow</a></li>
                 <li><a href="#features">Features</a></li>
-                <li><a href="#protocol">Protocol</a></li>
-                <li><a href="#screenshots">Screenshots</a></li>
-                <li><a href="#getting-started">Get Started</a></li>
+                <li><a href="#setup">Setup</a></li>
+                <li><a href="https://github.com/MRIIOT/NotNow">GitHub</a></li>
             </ul>
-            <a href="https://github.com/MRIIOT/NotNow" class="cta-button">View on GitHub</a>
+            <a href="https://github.com/MRIIOT/NotNow/releases" class="cta-button">Download Free</a>
         </nav>
     </header>
 
     <!-- Hero Section -->
     <section class="hero">
         <div class="container">
-            <h1>GitHub Issue Management, Elevated</h1>
-            <p class="subtitle">Transform your GitHub issues into a powerful task tracking system with a Quake-style dropdown terminal</p>
+            <h1>Your GitHub Issues.<br>Actually Usable.</h1>
+            <p class="subtitle">
+                Stop alt-tabbing to update tickets. Hit a hotkey, click a checkbox, keep coding.
+            </p>
 
             <div class="hero-image">
                 <img src="assets/notnow.gif" alt="NotNow in Action">
@@ -475,181 +539,244 @@
                     <span style="margin-right: 8px;">⬇️</span> Download NotNow
                 </a>
             </div>
-        </div>
-    </section>
 
-    <!-- Features -->
-    <section class="features" id="features">
-        <div class="container">
-            <h2>Why NotNow?</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Instant Access</h3>
-                    <p>Press Ctrl+~ to instantly access your GitHub issues. The Quake-style dropdown terminal stays on top of all windows, keeping your tasks always within reach.</p>
+            <div class="value-props">
+                <div class="value-prop">
+                    <h3>⚡ 2-Second Updates</h3>
+                    <p>Hit CTRL+~, click checkbox, done. No browser, no tabs, no searching for that one issue.</p>
                 </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Real-time Sync</h3>
-                    <p>Every change syncs immediately with GitHub. Check off a subtask, log time, or add a comment - it's all reflected in your GitHub issues instantly.</p>
+                <div class="value-prop">
+                    <h3>🔄 GitHub Is Your Database</h3>
+                    <p>Everything saves to GitHub Issues. Your team sees updates. No sync issues. No data lock-in.</p>
                 </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">⏱️</div>
-                    <h3>Built-in Time Tracking</h3>
-                    <p>Track time spent on issues and subtasks with simple commands. View daily and weekly totals in an intuitive calendar view.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">📋</div>
-                    <h3>Subtask Management</h3>
-                    <p>Break down complex issues into manageable subtasks. Complete them with a click, track progress, and even log time per subtask.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">🏷️</div>
-                    <h3>Rich Metadata</h3>
-                    <p>Add tags, set priorities, assign team members, set due dates, and add estimates - all through simple /notnow commands.</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">🎨</div>
-                    <h3>Visual Interface</h3>
-                    <p>Beautiful, intuitive UI with visual indicators for issue states, interactive checkboxes, and a clean three-panel layout.</p>
+                <div class="value-prop">
+                    <h3>💰 $0/month Forever</h3>
+                    <p>Open source. No subscriptions. No per-user pricing. Monday charges $500/month for your team. We charge nothing.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Protocol Section -->
-    <section class="protocol" id="protocol">
+    <!-- Problem Section -->
+    <section class="problem-section" id="why">
         <div class="container">
-            <h2>The /notnow Protocol</h2>
-            <div class="protocol-content">
-                <div class="protocol-text">
-                    <h3>Simple Commands, Powerful Results</h3>
-                    <p>NotNow works with ANY GitHub repository. No setup required, no database needed, no external services.</p>
-                    <p>Just add comments to your issues using the <code>/notnow</code> protocol, and NotNow transforms them into a rich task management system.</p>
-                    <p>All data stays in GitHub - your issues and comments ARE the database. This means zero vendor lock-in and complete data portability.</p>
+            <h2>The Problem With Task Management</h2>
+
+            <div class="comparison-grid">
+                <div class="comparison-card negative">
+                    <h3>😤 Using GitHub Issues Alone</h3>
+                    <ul>
+                        <li>Open browser, find tab, navigate to issue</li>
+                        <li>No subtasks (just walls of text)</li>
+                        <li>No time tracking</li>
+                        <li>Comments become a mess</li>
+                        <li>Zero keyboard shortcuts</li>
+                        <li>5 minutes to update status</li>
+                    </ul>
                 </div>
 
-                <div class="command-examples">
-                    <h4>Example Commands:</h4>
+                <div class="comparison-card negative">
+                    <h3>💸 Using Monday/ClickUp/Jira</h3>
+                    <ul>
+                        <li>$8-30 per user per month</li>
+                        <li>Your code is here, your tasks are there</li>
+                        <li>Two sources of truth to maintain</li>
+                        <li>Days of setup and migration</li>
+                        <li>Your data locked in their system</li>
+                        <li>Another tool to check every day</li>
+                    </ul>
+                </div>
 
-                    <div class="command">/notnow init</div>
-                    <div class="command-desc">Initialize an issue for NotNow tracking</div>
+                <div class="comparison-card positive">
+                    <h3>✨ Using NotNow</h3>
+                    <ul>
+                        <li>Hit CTRL+~, dropdown appears instantly</li>
+                        <li>Subtasks with visual checkboxes</li>
+                        <li>Built-in time tracking</li>
+                        <li>GitHub Issues remains source of truth</li>
+                        <li>Free and open source</li>
+                        <li>30-second setup</li>
+                    </ul>
+                </div>
+            </div>
 
-                    <div class="command">/notnow subtask add "Write unit tests" --estimate 2h</div>
-                    <div class="command-desc">Add a subtask with time estimate</div>
+            <div style="text-align: center; margin-top: 40px;">
+                <p style="font-size: 24px; color: #4a5568; max-width: 800px; margin: 0 auto;">
+                    <strong>NotNow isn't another task manager.</strong><br>
+                    It's a developer tool that makes GitHub Issues work the way you actually work.
+                </p>
+            </div>
+        </div>
+    </section>
 
-                    <div class="command">/notnow start -d "Working on authentication"</div>
-                    <div class="command-desc">Start tracking time with description</div>
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2>Built for How Developers Actually Work</h2>
+            <p class="features-subtitle">
+                Not how project managers think you should work.
+            </p>
 
-                    <div class="command">/notnow complete st1 --time 1h30m</div>
-                    <div class="command-desc">Complete subtask and log time spent</div>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">⌨️</div>
+                    <h3>Quake-Style Dropdown</h3>
+                    <p>Hit CTRL+~ and your tasks drop down from the top. No context switching, no losing focus. Update and dismiss in seconds.</p>
+                </div>
 
-                    <div class="command">/notnow tags add urgent,security</div>
-                    <div class="command-desc">Add tags to categorize issues</div>
+                <div class="feature-item">
+                    <div class="feature-icon">✅</div>
+                    <h3>Real Subtasks</h3>
+                    <p>Break down issues into checkable subtasks. Click to complete. No more "- [x] Done" in comments that nobody reads.</p>
+                </div>
 
-                    <div class="command">/notnow priority high</div>
-                    <div class="command-desc">Set issue priority level</div>
+                <div class="feature-item">
+                    <div class="feature-icon">⏱️</div>
+                    <h3>Time Tracking That Works</h3>
+                    <p>Start/stop timers with one click. Log time after the fact. Visual calendar shows where your week went.</p>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">🏷️</div>
+                    <h3>Tags & Status</h3>
+                    <p>Organize beyond GitHub labels. Set priority, due dates, estimates. Everything saves back to GitHub.</p>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">💬</div>
+                    <h3>Smart Comments</h3>
+                    <p>Regular comments for humans. Structured data for NotNow. Your team sees normal GitHub comments.</p>
+                </div>
+
+                <div class="feature-item">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Multi-Repo Support</h3>
+                    <p>Switch between repositories instantly. Work on client project, switch to side project, switch to open source. One tool.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Screenshots Section -->
-    <section class="screenshots" id="screenshots">
+    <section class="screenshots">
         <div class="container">
             <h2>See It In Action</h2>
+
             <div class="screenshot-grid">
                 <div class="screenshot-item">
-                    <img src="assets/notnow_subtasks.gif" alt="Interactive Subtask Management" style="width: 100%; height: auto;">
-                    <div class="screenshot-caption">Interactive Subtask Management</div>
+                    <img src="assets/notnow_subtasks.gif" alt="Interactive Subtask Management">
+                    <div class="screenshot-caption">Click checkboxes, not links</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <img src="assets/notnow_time.gif" alt="Visual Time Tracking Calendar" style="width: 100%; height: auto;">
-                    <div class="screenshot-caption">Visual Time Tracking Calendar</div>
+                    <img src="assets/notnow_time.gif" alt="Visual Time Tracking Calendar">
+                    <div class="screenshot-caption">See where your time actually goes</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <img src="assets/notnow_comments.gif" alt="Integrated Comments & Notes" style="width: 100%; height: auto;">
-                    <div class="screenshot-caption">Integrated Comments & Notes</div>
+                    <img src="assets/notnow_comments.gif" alt="Integrated Comments & Notes">
+                    <div class="screenshot-caption">Comments that don't suck</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <img src="assets/notnow_tags.gif" alt="Tag Management System" style="width: 100%; height: auto;">
-                    <div class="screenshot-caption">Tag Management System</div>
-                </div>
-
-                <div class="screenshot-item">
-                    <img src="assets/notnow_developer.gif" alt="Developer Mode Insights" style="width: 100%; height: auto;">
-                    <div class="screenshot-caption">Developer Mode Insights</div>
+                    <img src="assets/notnow_tags.gif" alt="Tag Management System">
+                    <div class="screenshot-caption">Organize your way</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Getting Started -->
-    <section class="getting-started" id="getting-started">
+    <!-- Setup Section -->
+    <section class="setup-section" id="setup">
         <div class="container">
-            <h2>Get Started in Minutes</h2>
-            <div class="steps">
-                <div class="step">
+            <h2>Running in 30 Seconds</h2>
+
+            <div class="setup-steps">
+                <div class="setup-step">
                     <div class="step-number">1</div>
                     <div class="step-content">
-                        <h3>Install NotNow</h3>
-                        <p>Clone the repository and build the application:</p>
-                        <div class="code-block">
-git clone https://github.com/MRIIOT/NotNow.git
-cd NotNow
-dotnet build NotNow.Quake/NotNow.Quake.csproj
-                        </div>
+                        <h3>Download NotNow</h3>
+                        <p>Grab the latest release for Windows. Mac and Linux coming soon.</p>
                     </div>
                 </div>
 
-                <div class="step">
+                <div class="setup-step">
                     <div class="step-number">2</div>
                     <div class="step-content">
-                        <h3>Configure GitHub Access</h3>
-                        <p>Create a GitHub personal access token with repo scope and add it to appsettings.json:</p>
-                        <div class="code-block">
-{
-  "GitHub": {
-    "PersonalAccessToken": "ghp_your_token",
-    "Owner": "your-username",
-    "Repository": "your-repo"
-  }
-}
+                        <h3>Add Your GitHub Token</h3>
+                        <p>Create a Personal Access Token in GitHub settings. Paste it into NotNow.</p>
+                        <div class="code-snippet">
+                            GitHub → Settings → Developer Settings → Personal Access Tokens
                         </div>
                     </div>
                 </div>
 
-                <div class="step">
+                <div class="setup-step">
                     <div class="step-number">3</div>
                     <div class="step-content">
-                        <h3>Launch & Use</h3>
-                        <p>Run NotNow and press Ctrl+~ to toggle the interface:</p>
-                        <div class="code-block">
-dotnet run --project NotNow.Quake
-                        </div>
-                        <p>That's it! Start managing your GitHub issues with style.</p>
+                        <h3>Hit CTRL+~</h3>
+                        <p>That's it. Your issues drop down. Start clicking checkboxes.</p>
                     </div>
                 </div>
             </div>
+
+            <p style="text-align: center; margin-top: 40px; color: #718096; font-size: 18px;">
+                No account creation. No credit card. No "free trial". Just download and use.
+            </p>
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <section class="cta-section">
+    <!-- Pricing Section -->
+    <section class="pricing">
         <div class="container">
-            <h2>Ready to Transform Your Workflow?</h2>
-            <p>Join developers who are taking GitHub issue management to the next level</p>
+            <h2>Let's Talk Money</h2>
+            <p class="pricing-subtitle">Or in NotNow's case, let's not.</p>
+
+            <div class="pricing-comparison">
+                <div class="pricing-row">
+                    <span class="tool-name">Monday.com</span>
+                    <span class="price">$24/user/month</span>
+                </div>
+                <div class="pricing-row">
+                    <span class="tool-name">ClickUp</span>
+                    <span class="price">$19/user/month</span>
+                </div>
+                <div class="pricing-row">
+                    <span class="tool-name">Jira</span>
+                    <span class="price">$8-16/user/month</span>
+                </div>
+                <div class="pricing-row">
+                    <span class="tool-name">Linear</span>
+                    <span class="price">$8/user/month</span>
+                </div>
+                <div class="pricing-row" style="border: 2px solid white; background: rgba(255,255,255,0.1); margin-top: 20px;">
+                    <span class="tool-name">NotNow</span>
+                    <span class="price">$0 forever</span>
+                </div>
+            </div>
+
+            <p style="margin-top: 40px; font-size: 18px; opacity: 0.95;">
+                10-person team? That's $2,400/year with Monday. Or $0 with NotNow.<br>
+                Spend that money on developers, not task management.
+            </p>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final-cta">
+        <div class="container">
+            <h2>Stop Managing Tasks.<br>Start Finishing Them.</h2>
+            <p>
+                Your issues are already in GitHub. Now make them actually useful.
+            </p>
+
             <div class="cta-buttons">
-                <a href="https://github.com/MRIIOT/NotNow" class="btn-primary">Get NotNow Free</a>
-                <a href="#getting-started" class="btn-secondary">View Documentation</a>
+                <a href="https://github.com/MRIIOT/NotNow/releases" class="cta-button-large">
+                    Download NotNow Free
+                </a>
+                <a href="https://github.com/MRIIOT/NotNow" class="cta-button-large secondary-button">
+                    View on GitHub
+                </a>
             </div>
         </div>
     </section>
@@ -657,11 +784,14 @@ dotnet run --project NotNow.Quake
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>&copy; 2024 NotNow. Built with ❤️ for developers.</p>
             <p>
-                <a href="https://github.com/MRIIOT/NotNow">GitHub</a> •
-                <a href="https://github.com/MRIIOT/NotNow/issues">Issues</a>
+                NotNow is open source software. Built by developers, for developers.
             </p>
+            <div style="margin-top: 20px;">
+                <a href="https://github.com/MRIIOT/NotNow">GitHub</a>
+                <a href="https://github.com/MRIIOT/NotNow/issues">Report Issues</a>
+                <a href="https://notnowboss.com">NotNowBoss.com</a>
+            </div>
         </div>
     </footer>
 </body>

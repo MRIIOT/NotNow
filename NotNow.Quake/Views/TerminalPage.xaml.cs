@@ -91,12 +91,10 @@ public partial class TerminalPage : ContentPage, IDisposable
                     _stateService = serviceProvider.GetService<IIssueStateService>();
                     Console.WriteLine($"[TerminalPage] StateService loaded: {_stateService != null}");
 
-                    _commandExecutor = serviceProvider.GetService<ICommandExecutor>();
+                    // Don't load these services yet - they need IGitHubService which requires CurrentRepositoryId to be set
+                    // We'll load them after InitializeRepositorySelector sets the current repository
                     _autoCompleter = serviceProvider.GetService<CommandAutoCompleter>();
-                    _commandParser = serviceProvider.GetService<ICommandParser>();
-                    _commandPostingService = serviceProvider.GetService<ICommandPostingService>();
-                    _issueStateParser = serviceProvider.GetService<IIssueStateParser>();
-                    Console.WriteLine("[TerminalPage] All services loaded");
+                    Console.WriteLine("[TerminalPage] Initial services loaded");
                 }
                 catch (Exception ex)
                 {
@@ -1874,6 +1872,22 @@ public partial class TerminalPage : ContentPage, IDisposable
         _currentRepositoryId = defaultRepo.Id;
         _gitHubServiceManager.CurrentRepositoryId = _currentRepositoryId;
         _gitHubService = _gitHubServiceManager.GetService(_currentRepositoryId);
+
+        // Now that CurrentRepositoryId is set, create a service scope to get fresh instances
+        // of services that depend on IGitHubService
+        var serviceProvider = Handler?.MauiContext?.Services;
+        if (serviceProvider != null)
+        {
+            _currentServiceScope = serviceProvider.CreateScope();
+            var scopedProvider = _currentServiceScope.ServiceProvider;
+
+            // Get fresh instances that will use the current repository
+            _commandParser = scopedProvider.GetService<ICommandParser>();
+            _commandPostingService = scopedProvider.GetService<ICommandPostingService>();
+            _commandExecutor = scopedProvider.GetService<ICommandExecutor>();
+            _issueStateParser = scopedProvider.GetService<IIssueStateParser>();
+            Console.WriteLine("[TerminalPage] Repository-specific services loaded");
+        }
 
         var selectedIndex = repositories.IndexOf(defaultRepo);
         if (selectedIndex >= 0)
