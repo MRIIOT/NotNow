@@ -264,15 +264,11 @@
             transform: scale(1.05);
         }
 
-        .screenshot-placeholder {
+        .screenshot-item img {
+            width: 100%;
             height: 200px;
-            background: linear-gradient(45deg, #e0e0e0 25%, #f0f0f0 25%, #f0f0f0 50%, #e0e0e0 50%, #e0e0e0 75%, #f0f0f0 75%, #f0f0f0);
-            background-size: 20px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            font-size: 14px;
+            object-fit: cover;
+            display: block;
         }
 
         .screenshot-caption {
@@ -453,7 +449,6 @@
         <nav class="container">
             <div class="logo">
                 <img src="assets/notnow_logo_square.png" alt="NotNow Logo">
-                <span>NotNow</span>
             </div>
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
@@ -461,7 +456,7 @@
                 <li><a href="#screenshots">Screenshots</a></li>
                 <li><a href="#getting-started">Get Started</a></li>
             </ul>
-            <a href="https://github.com/yourusername/NotNow" class="cta-button">View on GitHub</a>
+            <a href="https://github.com/MRIIOT/NotNow" class="cta-button">View on GitHub</a>
         </nav>
     </header>
 
@@ -564,32 +559,27 @@
             <h2>See It In Action</h2>
             <div class="screenshot-grid">
                 <div class="screenshot-item">
-                    <div class="screenshot-placeholder">[Main Interface Screenshot]</div>
-                    <div class="screenshot-caption">Three-Panel Interface</div>
-                </div>
-
-                <div class="screenshot-item">
-                    <div class="screenshot-placeholder">[Subtasks Screenshot]</div>
+                    <img src="assets/notnow_subtasks.gif" alt="Interactive Subtask Management" style="width: 100%; height: auto;">
                     <div class="screenshot-caption">Interactive Subtask Management</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <div class="screenshot-placeholder">[Time Tracking Screenshot]</div>
+                    <img src="assets/notnow_time.gif" alt="Visual Time Tracking Calendar" style="width: 100%; height: auto;">
                     <div class="screenshot-caption">Visual Time Tracking Calendar</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <div class="screenshot-placeholder">[Comments Screenshot]</div>
+                    <img src="assets/notnow_comments.gif" alt="Integrated Comments & Notes" style="width: 100%; height: auto;">
                     <div class="screenshot-caption">Integrated Comments & Notes</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <div class="screenshot-placeholder">[Tags Screenshot]</div>
+                    <img src="assets/notnow_tags.gif" alt="Tag Management System" style="width: 100%; height: auto;">
                     <div class="screenshot-caption">Tag Management System</div>
                 </div>
 
                 <div class="screenshot-item">
-                    <div class="screenshot-placeholder">[Developer Mode Screenshot]</div>
+                    <img src="assets/notnow_developer.gif" alt="Developer Mode Insights" style="width: 100%; height: auto;">
                     <div class="screenshot-caption">Developer Mode Insights</div>
                 </div>
             </div>
@@ -607,7 +597,7 @@
                         <h3>Install NotNow</h3>
                         <p>Clone the repository and build the application:</p>
                         <div class="code-block">
-git clone https://github.com/yourusername/NotNow.git
+git clone https://github.com/MRIIOT/NotNow.git
 cd NotNow
 dotnet build NotNow.Quake/NotNow.Quake.csproj
                         </div>
@@ -652,7 +642,7 @@ dotnet run --project NotNow.Quake
             <h2>Ready to Transform Your Workflow?</h2>
             <p>Join developers who are taking GitHub issue management to the next level</p>
             <div class="cta-buttons">
-                <a href="https://github.com/yourusername/NotNow" class="btn-primary">Get NotNow Free</a>
+                <a href="https://github.com/MRIIOT/NotNow" class="btn-primary">Get NotNow Free</a>
                 <a href="#getting-started" class="btn-secondary">View Documentation</a>
             </div>
         </div>
@@ -663,9 +653,8 @@ dotnet run --project NotNow.Quake
         <div class="container">
             <p>&copy; 2024 NotNow. Built with ❤️ for developers.</p>
             <p>
-                <a href="https://github.com/yourusername/NotNow">GitHub</a> •
-                <a href="https://github.com/yourusername/NotNow/issues">Issues</a> •
-                <a href="https://github.com/yourusername/NotNow/blob/main/LICENSE">MIT License</a>
+                <a href="https://github.com/MRIIOT/NotNow">GitHub</a> •
+                <a href="https://github.com/MRIIOT/NotNow/issues">Issues</a>
             </p>
         </div>
     </footer>

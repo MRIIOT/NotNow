@@ -24,7 +24,8 @@
       "Bash(cmd /c \"dir C:\\source\\personal\\NotNow\\NotNow.Quake\\*.md\")",
       "Bash(cmd /c:*)",
       "mcp__serena__insert_after_symbol",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "Bash(grep:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
