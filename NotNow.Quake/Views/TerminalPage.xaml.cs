@@ -1730,6 +1730,57 @@ public partial class TerminalPage : ContentPage
         }
     }
 
+    private async void OnDeveloperModeClicked(object sender, EventArgs e)
+    {
+        if (_selectedIssue == null || _gitHubService == null || _issueStateParser == null)
+        {
+            await DisplayAlert("Developer Mode", "No issue selected or services not initialized", "OK");
+            return;
+        }
+
+        try
+        {
+            // Get all issues to find the selected one
+            var issues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.All);
+            var issue = issues.FirstOrDefault(i => i.Number == _selectedIssue.Number);
+
+            if (issue == null)
+            {
+                await DisplayAlert("Error", "Could not find the selected issue", "OK");
+                return;
+            }
+
+            // Get the comments
+            var comments = await _gitHubService.GetIssueCommentsAsync(_selectedIssue.Number);
+
+            // Parse the issue state
+            var issueState = _issueStateParser.ParseIssueState(issue, comments);
+
+            // Serialize the state to JSON for display
+            var jsonOptions = new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            };
+
+            string stateJson = System.Text.Json.JsonSerializer.Serialize(issueState, jsonOptions);
+
+            // Display in the developer mode panel
+            DeveloperModeContent.Text = stateJson;
+            DeveloperModePanel.IsVisible = true;
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to load issue state: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnCloseDeveloperMode(object sender, EventArgs e)
+    {
+        DeveloperModePanel.IsVisible = false;
+        DeveloperModeContent.Text = "";
+    }
+
     public class IssueItem
     {
         public int Number { get; set; }

@@ -190,6 +190,29 @@
                                         </Label.GestureRecognizers>
                                     </Label>
                                 </Border>
+
+                                <!-- Developer Mode button -->
+                                <Border x:Name="DeveloperModeButton"
+                                        BackgroundColor="#2A2A2A"
+                                        StrokeThickness="1"
+                                        Stroke="#4A9EFF"
+                                        HeightRequest="30"
+                                        WidthRequest="30"
+                                        VerticalOptions="Center">
+                                    <Label Text="&#xEAD3;"
+                                           TextColor="#4A9EFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="20"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"
+                                           ToolTipProperties.Text="Developer mode">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnDeveloperModeClicked" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
                             </HorizontalStackLayout>
                         </Grid>
 
@@ -960,6 +983,77 @@
             </Grid>
         </Border>
 
+        <!-- Developer Mode Panel (popup for showing parsed issue state) -->
+        <Border x:Name="DeveloperModePanel"
+                IsVisible="False"
+                BackgroundColor="#1A1A1A"
+                StrokeThickness="2"
+                Stroke="#4A9EFF"
+                Padding="10"
+                Grid.Row="0"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                WidthRequest="600"
+                HeightRequest="500">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Label Text="PARSED ISSUE STATE"
+                           TextColor="#4A9EFF"
+                           FontFamily="CascadiaMono"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Start" />
+
+                    <!-- Close button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="0"
+                            HeightRequest="25"
+                            WidthRequest="25"
+                            HorizontalOptions="End">
+                        <Label Text="&#xE14C;"
+                               TextColor="#FF4444"
+                               FontFamily="MaterialIcons"
+                               FontSize="18"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCloseDeveloperMode" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+                </Grid>
+
+                <!-- Content -->
+                <ScrollView Grid.Row="1">
+                    <Editor x:Name="DeveloperModeContent"
+                            TextColor="#00FF00"
+                            BackgroundColor="#0A0A0A"
+                            FontFamily="CascadiaMono"
+                            FontSize="11"
+                            IsReadOnly="True"
+                            HorizontalOptions="Fill"
+                            VerticalOptions="Fill" />
+                </ScrollView>
+
+                <!-- Footer -->
+                <Label Grid.Row="2"
+                       Text="This shows the parsed /notnow state from issue and comments"
+                       TextColor="#606060"
+                       FontFamily="CascadiaMono"
+                       FontSize="10"
+                       HorizontalOptions="Center"
+                       Margin="0,10,0,0" />
+            </Grid>
+        </Border>
 
         <!-- Logo and Toggle Hint -->
         <Grid Grid.Row="1" HorizontalOptions="Fill" VerticalOptions="Center" Margin="10,5">
