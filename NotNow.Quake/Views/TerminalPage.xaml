@@ -65,9 +65,34 @@
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
                                        HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center">
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Add issue">
                                     <Label.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnAddIssueClicked" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+
+                            <!-- Closed Issues Filter Toggle -->
+                            <Border x:Name="ClosedIssuesToggleBorder"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label x:Name="ClosedIssuesToggle"
+                                       Text="&#xE76E;"
+                                       TextColor="#4A9EFF"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Hide closed issues">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnClosedIssuesToggled" />
                                     </Label.GestureRecognizers>
                                 </Label>
                             </Border>
@@ -123,18 +148,64 @@
                 <BoxView Grid.Column="1" Color="#4A9EFF" />
 
                 <!-- Issue Details -->
-                <ScrollView Grid.Column="2" Padding="10">
-                    <StackLayout Spacing="10">
-                        <Label Text="ISSUE DETAILS"
-                               TextColor="#E0E0E0"
-                               FontFamily="CascadiaMono"
-                               FontSize="14" />
+                <Grid Grid.Column="2">
+                    <ScrollView Padding="10">
+                        <StackLayout Spacing="10">
+                        <!-- Issue Details Header with Toolbar -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <Label x:Name="IssueTitle"
-                               TextColor="#FFFFFF"
-                               FontFamily="CascadiaMono"
-                               FontSize="16"
-                               FontAttributes="Bold" />
+                            <Label Grid.Column="0"
+                                   Text="ISSUE DETAILS"
+                                   TextColor="#E0E0E0"
+                                   FontFamily="CascadiaMono"
+                                   FontSize="14"
+                                   VerticalTextAlignment="Center" />
+
+                            <!-- Toolbar -->
+                            <HorizontalStackLayout Grid.Column="2" Spacing="5" VerticalOptions="Center">
+                                <!-- Add Tag button -->
+                                <Border x:Name="AddTagButton"
+                                        BackgroundColor="#2A2A2A"
+                                        StrokeThickness="1"
+                                        Stroke="#4A9EFF"
+                                        HeightRequest="30"
+                                        WidthRequest="30"
+                                        VerticalOptions="Center">
+                                    <Label Text="&#xE609;"
+                                           TextColor="#4A9EFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="20"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"
+                                           ToolTipProperties.Text="Add tag">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnAddTagClicked" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                            </HorizontalStackLayout>
+                        </Grid>
+
+                        <!-- Issue Title with Tags -->
+                        <HorizontalStackLayout Spacing="5">
+                            <Label x:Name="IssueTitle"
+                                   TextColor="#FFFFFF"
+                                   FontFamily="CascadiaMono"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+
+                            <!-- Tags Container (will be populated dynamically) -->
+                            <HorizontalStackLayout x:Name="TagsContainer" Spacing="5" />
+                        </HorizontalStackLayout>
+
 
                         <!-- Issue Description/Body -->
                         <Frame BackgroundColor="#2A2A2A"
@@ -342,7 +413,8 @@
                                                            HorizontalOptions="Center"
                                                            VerticalOptions="Center"
                                                            HorizontalTextAlignment="Center"
-                                                           VerticalTextAlignment="Center">
+                                                           VerticalTextAlignment="Center"
+                                                           ToolTipProperties.Text="Add subtask">
                                                         <Label.GestureRecognizers>
                                                             <TapGestureRecognizer Tapped="OnAddSubtaskClicked" />
                                                         </Label.GestureRecognizers>
@@ -354,160 +426,56 @@
 
                                     <!-- Time Tracking Content -->
                                     <Grid x:Name="TimeTrackingContent" IsVisible="False">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- Left side: Calendar -->
-                                        <VerticalStackLayout Grid.Column="0" Spacing="8" Margin="0,0,10,0">
-                                            <!-- Calendar Header -->
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="60" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="50" />
-                                                    <ColumnDefinition Width="15" />
-                                                    <ColumnDefinition Width="80" />
-                                                </Grid.ColumnDefinitions>
-                                                <Label Grid.Column="0" Text="" />
-                                                <Label Grid.Column="1" Text="S" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="2" Text="M" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="3" Text="T" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="4" Text="W" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="5" Text="T" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="6" Text="F" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="7" Text="S" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="8" Text="│" TextColor="#404040" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
-                                                <Label Grid.Column="9" Text="Total" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
-                                            </Grid>
-
-                                            <!-- Separator line -->
-                                            <BoxView HeightRequest="1" BackgroundColor="#404040" />
-
-                                            <!-- Week rows will be dynamically generated -->
-                                            <VerticalStackLayout x:Name="WeekRowsContainer" Spacing="5" />
-
-                                            <!-- Separator line -->
-                                            <BoxView HeightRequest="1" BackgroundColor="#404040" Margin="0,8,0,8" />
-
-                                            <!-- Total only -->
-                                            <Label x:Name="TotalTimeLabel" Text="Total: 0h" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="14" FontAttributes="Bold" />
-                                        </VerticalStackLayout>
-
-                                        <!-- Right side: Toolbar and forms -->
-                                        <Grid Grid.Column="1">
+                                        <!-- Main content in a grid -->
+                                        <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
 
-                                            <!-- Content area with log time panel -->
-                                            <HorizontalStackLayout Grid.Column="0" HorizontalOptions="End" Spacing="0">
-                                                <!-- Log Time Panel (hidden by default, appears to left of button) -->
-                                                <Border x:Name="LogTimePanel"
-                                                        IsVisible="False"
-                                                        BackgroundColor="#1A1A1A"
-                                                        StrokeThickness="1"
-                                                        Stroke="#4A9EFF"
-                                                        Padding="5"
-                                                        WidthRequest="250"
-                                                        Margin="0,0,10,0"
-                                                        VerticalOptions="Start">
-                                                    <StackLayout Spacing="5">
-                                                        <!-- Duration input (required) -->
-                                                        <Label Text="Duration (required):"
-                                                               TextColor="#808080"
-                                                               FontFamily="CascadiaMono"
-                                                               FontSize="11" />
-                                                        <Entry x:Name="LogTimeDurationInput"
-                                                               Placeholder="e.g., 2h30m"
-                                                               BackgroundColor="#2A2A2A"
-                                                               TextColor="#FFFFFF"
-                                                               PlaceholderColor="#606060"
-                                                               FontFamily="CascadiaMono"
-                                                               FontSize="12" />
+                                            <!-- Left side: Calendar -->
+                                            <VerticalStackLayout Grid.Column="0" Spacing="8" Margin="0,0,10,0">
+                                                <!-- Calendar Header -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="60" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="50" />
+                                                        <ColumnDefinition Width="15" />
+                                                        <ColumnDefinition Width="80" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Label Grid.Column="0" Text="" />
+                                                    <Label Grid.Column="1" Text="S" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="2" Text="M" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="3" Text="T" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="4" Text="W" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="5" Text="T" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="6" Text="F" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="7" Text="S" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="8" Text="│" TextColor="#404040" FontFamily="CascadiaMono" FontSize="13" HorizontalTextAlignment="Center" />
+                                                    <Label Grid.Column="9" Text="Total" TextColor="#808080" FontFamily="CascadiaMono" FontSize="13" />
+                                                </Grid>
 
-                                                        <!-- Description input (optional) -->
-                                                        <Label Text="Description (optional):"
-                                                               TextColor="#808080"
-                                                               FontFamily="CascadiaMono"
-                                                               FontSize="11" />
-                                                        <Editor x:Name="LogTimeDescriptionInput"
-                                                                Placeholder="What did you work on?"
-                                                                BackgroundColor="#2A2A2A"
-                                                                TextColor="#FFFFFF"
-                                                                PlaceholderColor="#606060"
-                                                                FontFamily="CascadiaMono"
-                                                                FontSize="12"
-                                                                HeightRequest="50"
-                                                                AutoSize="TextChanges"
-                                                                MaximumHeightRequest="80" />
+                                                <!-- Separator line -->
+                                                <BoxView HeightRequest="1" BackgroundColor="#404040" />
 
-                                                        <!-- Date input (optional) -->
-                                                        <Label Text="Date (optional):"
-                                                               TextColor="#808080"
-                                                               FontFamily="CascadiaMono"
-                                                               FontSize="11" />
-                                                        <Entry x:Name="LogTimeDateInput"
-                                                               Placeholder="YYYY-MM-DD (default: today)"
-                                                               BackgroundColor="#2A2A2A"
-                                                               TextColor="#FFFFFF"
-                                                               PlaceholderColor="#606060"
-                                                               FontFamily="CascadiaMono"
-                                                               FontSize="12" />
+                                                <!-- Week rows will be dynamically generated -->
+                                                <VerticalStackLayout x:Name="WeekRowsContainer" Spacing="5" />
 
-                                                        <!-- Action buttons -->
-                                                        <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
-                                                            <!-- Cancel Button -->
-                                                            <Border BackgroundColor="#2A2A2A"
-                                                                    StrokeThickness="0"
-                                                                    HeightRequest="25"
-                                                                    WidthRequest="25">
-                                                                <Label Text="&#xE14C;"
-                                                                       TextColor="#FF4444"
-                                                                       FontFamily="MaterialIcons"
-                                                                       FontSize="18"
-                                                                       HorizontalOptions="Center"
-                                                                       VerticalOptions="Center"
-                                                                       HorizontalTextAlignment="Center"
-                                                                       VerticalTextAlignment="Center">
-                                                                    <Label.GestureRecognizers>
-                                                                        <TapGestureRecognizer Tapped="OnLogTimeCancel" />
-                                                                    </Label.GestureRecognizers>
-                                                                </Label>
-                                                            </Border>
+                                                <!-- Separator line -->
+                                                <BoxView HeightRequest="1" BackgroundColor="#404040" Margin="0,8,0,8" />
 
-                                                            <!-- Save Button -->
-                                                            <Border BackgroundColor="#2A2A2A"
-                                                                    StrokeThickness="0"
-                                                                    HeightRequest="25"
-                                                                    WidthRequest="25">
-                                                                <Label Text="&#xE31B;"
-                                                                       TextColor="#4A9EFF"
-                                                                       FontFamily="MaterialIcons"
-                                                                       FontSize="18"
-                                                                       HorizontalOptions="Center"
-                                                                       VerticalOptions="Center"
-                                                                       HorizontalTextAlignment="Center"
-                                                                       VerticalTextAlignment="Center">
-                                                                    <Label.GestureRecognizers>
-                                                                        <TapGestureRecognizer Tapped="OnLogTimeConfirm" />
-                                                                    </Label.GestureRecognizers>
-                                                                </Label>
-                                                            </Border>
-                                                        </HorizontalStackLayout>
-                                                    </StackLayout>
-                                                </Border>
-                                            </HorizontalStackLayout>
+                                                <!-- Total only -->
+                                                <Label x:Name="TotalTimeLabel" Text="Total: 0h" TextColor="#FFFFFF" FontFamily="CascadiaMono" FontSize="14" FontAttributes="Bold" />
+                                            </VerticalStackLayout>
 
-                                            <!-- Vertical toolbar -->
-                                            <VerticalStackLayout Grid.Column="1" Spacing="10" Margin="10,0,0,0">
+                                            <!-- Right side: Toolbar -->
+                                            <VerticalStackLayout Grid.Column="1" Spacing="10" Margin="10,0,0,0" HorizontalOptions="End">
                                                 <!-- Log Time button -->
                                                 <Border BackgroundColor="#2A2A2A"
                                                         StrokeThickness="1"
@@ -531,12 +499,177 @@
                                                 </Border>
                                             </VerticalStackLayout>
                                         </Grid>
+
+                                        <!-- Log Time Panel Overlay (appears on top when visible) -->
+                                        <Border x:Name="LogTimePanel"
+                                                IsVisible="False"
+                                                BackgroundColor="#1A1A1A"
+                                                StrokeThickness="1"
+                                                Stroke="#4A9EFF"
+                                                Padding="5"
+                                                WidthRequest="250"
+                                                HorizontalOptions="End"
+                                                VerticalOptions="Start"
+                                                Margin="0,0,50,0">
+                                            <StackLayout Spacing="5">
+                                                <!-- Duration input (required) -->
+                                                <Label Text="Duration (required):"
+                                                       TextColor="#808080"
+                                                       FontFamily="CascadiaMono"
+                                                       FontSize="11" />
+                                                <Entry x:Name="LogTimeDurationInput"
+                                                       Placeholder="e.g., 2h30m"
+                                                       BackgroundColor="#2A2A2A"
+                                                       TextColor="#FFFFFF"
+                                                       PlaceholderColor="#606060"
+                                                       FontFamily="CascadiaMono"
+                                                       FontSize="12" />
+
+                                                <!-- Description input (optional) -->
+                                                <Label Text="Description (optional):"
+                                                       TextColor="#808080"
+                                                       FontFamily="CascadiaMono"
+                                                       FontSize="11" />
+                                                <Editor x:Name="LogTimeDescriptionInput"
+                                                        Placeholder="What did you work on?"
+                                                        BackgroundColor="#2A2A2A"
+                                                        TextColor="#FFFFFF"
+                                                        PlaceholderColor="#606060"
+                                                        FontFamily="CascadiaMono"
+                                                        FontSize="12"
+                                                        HeightRequest="50"
+                                                        AutoSize="TextChanges"
+                                                        MaximumHeightRequest="80" />
+
+                                                <!-- Date input (optional) -->
+                                                <Label Text="Date (optional):"
+                                                       TextColor="#808080"
+                                                       FontFamily="CascadiaMono"
+                                                       FontSize="11" />
+                                                <Entry x:Name="LogTimeDateInput"
+                                                       Placeholder="YYYY-MM-DD (default: today)"
+                                                       BackgroundColor="#2A2A2A"
+                                                       TextColor="#FFFFFF"
+                                                       PlaceholderColor="#606060"
+                                                       FontFamily="CascadiaMono"
+                                                       FontSize="12" />
+
+                                                <!-- Action buttons -->
+                                                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                                    <!-- Cancel Button -->
+                                                    <Border BackgroundColor="#2A2A2A"
+                                                            StrokeThickness="0"
+                                                            HeightRequest="25"
+                                                            WidthRequest="25">
+                                                        <Label Text="&#xE14C;"
+                                                               TextColor="#FF4444"
+                                                               FontFamily="MaterialIcons"
+                                                               FontSize="18"
+                                                               HorizontalOptions="Center"
+                                                               VerticalOptions="Center"
+                                                               HorizontalTextAlignment="Center"
+                                                               VerticalTextAlignment="Center">
+                                                            <Label.GestureRecognizers>
+                                                                <TapGestureRecognizer Tapped="OnLogTimeCancel" />
+                                                            </Label.GestureRecognizers>
+                                                        </Label>
+                                                    </Border>
+
+                                                    <!-- Save Button -->
+                                                    <Border BackgroundColor="#2A2A2A"
+                                                            StrokeThickness="0"
+                                                            HeightRequest="25"
+                                                            WidthRequest="25">
+                                                        <Label Text="&#xE31B;"
+                                                               TextColor="#4A9EFF"
+                                                               FontFamily="MaterialIcons"
+                                                               FontSize="18"
+                                                               HorizontalOptions="Center"
+                                                               VerticalOptions="Center"
+                                                               HorizontalTextAlignment="Center"
+                                                               VerticalTextAlignment="Center">
+                                                            <Label.GestureRecognizers>
+                                                                <TapGestureRecognizer Tapped="OnLogTimeConfirm" />
+                                                            </Label.GestureRecognizers>
+                                                        </Label>
+                                                    </Border>
+                                                </HorizontalStackLayout>
+                                            </StackLayout>
+                                        </Border>
                                     </Grid>
                                 </Grid>
                             </Border>
                         </Grid>
-                    </StackLayout>
-                </ScrollView>
+                        </StackLayout>
+                    </ScrollView>
+
+                    <!-- Tag Input Panel Overlay (appears on top when visible) -->
+                    <Border x:Name="TagInputPanel"
+                            IsVisible="False"
+                            BackgroundColor="#1A1A1A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            Padding="5"
+                            WidthRequest="250"
+                            VerticalOptions="Start"
+                            HorizontalOptions="Center"
+                            Margin="0,50,0,0">
+                        <StackLayout Spacing="5">
+                            <Label Text="Tag name:"
+                                   TextColor="#808080"
+                                   FontFamily="CascadiaMono"
+                                   FontSize="11" />
+                            <Entry x:Name="TagNameInput"
+                                   TextColor="#FFFFFF"
+                                   BackgroundColor="#2A2A2A"
+                                   FontFamily="CascadiaMono"
+                                   FontSize="12"
+                                   Placeholder="Enter tag name..."
+                                   PlaceholderColor="#606060" />
+
+                            <!-- Action Buttons -->
+                            <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                                <!-- Cancel Button -->
+                                <Border BackgroundColor="#2A2A2A"
+                                        StrokeThickness="0"
+                                        HeightRequest="25"
+                                        WidthRequest="25">
+                                    <Label Text="&#xE14C;"
+                                           TextColor="#FF4444"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="18"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnCancelTagInput" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+
+                                <!-- Add Button -->
+                                <Border BackgroundColor="#2A2A2A"
+                                        StrokeThickness="0"
+                                        HeightRequest="25"
+                                        WidthRequest="25">
+                                    <Label Text="&#xE31B;"
+                                           TextColor="#4A9EFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="18"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnSubmitTag" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                            </HorizontalStackLayout>
+                        </StackLayout>
+                    </Border>
+                </Grid>
 
                 <!-- Vertical Separator -->
                 <BoxView Grid.Column="3" Color="#4A9EFF" />
@@ -583,7 +716,8 @@
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
                                        HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center">
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Add comment">
                                     <Label.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnAddCommentClicked" />
                                     </Label.GestureRecognizers>
@@ -605,7 +739,8 @@
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
                                        HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center">
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Add note">
                                     <Label.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnAddNoteClicked" />
                                     </Label.GestureRecognizers>
@@ -628,7 +763,8 @@
                                        HorizontalOptions="Center"
                                        VerticalOptions="Center"
                                        HorizontalTextAlignment="Center"
-                                       VerticalTextAlignment="Center">
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Toggle commands">
                                     <Label.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnCommandFilterToggled" />
                                     </Label.GestureRecognizers>

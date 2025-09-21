@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Shapes;
 using NotNow.Core.Services;
 using NotNow.Core.Console;
 using NotNow.GitHubService.Interfaces;
@@ -24,6 +25,7 @@ public partial class TerminalPage : ContentPage
     private IssueItem? _selectedIssue;
     private List<string> _currentSuggestions = new();
     private bool _showCommandComments = false;  // OFF by default (commands are filtered/hidden)
+    private bool _hideClosedIssues = true;  // ON by default (closed issues are hidden)
     private List<Octokit.IssueComment>? _allComments;
     private string? _pendingSubtaskId;  // Track subtask being completed
     private string? _pendingSubtaskStatus;  // Track original status for cancellation
@@ -70,6 +72,14 @@ public partial class TerminalPage : ContentPage
             CommandFilterToggle.TextColor = Color.FromArgb("#808080");
         }
 
+        // Initialize closed issues toggle appearance (ON by default - closed issues hidden)
+        if (ClosedIssuesToggle != null && ClosedIssuesToggleBorder != null)
+        {
+            ClosedIssuesToggleBorder.BackgroundColor = Color.FromArgb("#4A9EFF");
+            ClosedIssuesToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+            ClosedIssuesToggle.TextColor = Color.FromArgb("#FFFFFF");
+        }
+
         // Load issues after services are initialized
         LoadIssues();
     }
@@ -90,34 +100,35 @@ public partial class TerminalPage : ContentPage
         {
             if (_gitHubService == null) return;
 
-            // Fetch both open and closed issues
-            var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
-            var closedIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Closed);
-
             _issues.Clear();
 
-            // Add open issues first (limit to 15)
+            // Always fetch and add open issues (limit to 15)
+            var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
             foreach (var issue in openIssues.Take(15))
             {
                 _issues.Add(new IssueItem
                 {
                     Number = issue.Number,
                     Title = issue.Title,
-                    DisplayText = $"#{issue.Number} {issue.Title.Substring(0, Math.Min(issue.Title.Length, 20))}",
+                    DisplayText = $"#{issue.Number} {(issue.Title.Length > 45 ? issue.Title.Substring(0, 45) + "..." : issue.Title)}",
                     IsClosed = false
                 });
             }
 
-            // Then add closed issues (limit to 10)
-            foreach (var issue in closedIssues.Take(10))
+            // Only fetch and add closed issues if filter is OFF
+            if (!_hideClosedIssues)
             {
-                _issues.Add(new IssueItem
+                var closedIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Closed);
+                foreach (var issue in closedIssues.Take(10))
                 {
-                    Number = issue.Number,
-                    Title = issue.Title,
-                    DisplayText = $"#{issue.Number} {issue.Title.Substring(0, Math.Min(issue.Title.Length, 20))}",
-                    IsClosed = true
-                });
+                    _issues.Add(new IssueItem
+                    {
+                        Number = issue.Number,
+                        Title = issue.Title,
+                        DisplayText = $"#{issue.Number} {(issue.Title.Length > 45 ? issue.Title.Substring(0, 45) + "..." : issue.Title)}",
+                        IsClosed = true
+                    });
+                }
             }
 
             if (_issues.Any())
@@ -202,6 +213,9 @@ public partial class TerminalPage : ContentPage
             DueLabel.Text = state.DueDate?.ToString("yyyy-MM-dd") ?? "not set";
             EstimateLabel.Text = state.Estimate ?? "not set";
 
+            // Update tags display
+            UpdateTagsDisplay(state.Tags);
+
             // Update time tracking calendar
             UpdateTimeTrackingCalendar(state);
 
@@ -280,6 +294,198 @@ public partial class TerminalPage : ContentPage
         catch (Exception ex)
         {
             await DisplayAlert("Error", $"Failed to load issue details: {ex.Message}", "OK");
+        }
+    }
+
+    private void UpdateTagsDisplay(List<string> tags)
+    {
+        // Clear existing tags
+        TagsContainer.Children.Clear();
+
+        if (tags != null && tags.Any())
+        {
+            foreach (var tag in tags)
+            {
+                // Create tag pill container with rounded corners
+                var tagBorder = new Border
+                {
+                    BackgroundColor = Color.FromArgb("#1A4A9E"),
+                    StrokeThickness = 1,
+                    Stroke = Color.FromArgb("#4A9EFF"),
+                    Padding = new Thickness(8, 2, 4, 2),
+                    Margin = new Thickness(0, 0, 5, 0),
+                    HorizontalOptions = LayoutOptions.Start,
+                    StrokeShape = new RoundRectangle
+                    {
+                        CornerRadius = new CornerRadius(10)
+                    }
+                };
+
+                // Create horizontal stack for tag text and remove button
+                var tagStack = new HorizontalStackLayout
+                {
+                    Spacing = 5
+                };
+
+                // Tag text
+                var tagLabel = new Label
+                {
+                    Text = tag,
+                    TextColor = Color.FromArgb("#E0E0E0"),
+                    FontFamily = "CascadiaMono",
+                    FontSize = 12,
+                    VerticalTextAlignment = TextAlignment.Center
+                };
+                tagStack.Children.Add(tagLabel);
+
+                // Remove button (×)
+                var removeLabel = new Label
+                {
+                    Text = "×",
+                    TextColor = Color.FromArgb("#808080"),
+                    FontFamily = "CascadiaMono",
+                    FontSize = 14,
+                    VerticalTextAlignment = TextAlignment.Center
+                };
+
+                var removeTapGesture = new TapGestureRecognizer();
+                removeTapGesture.Tapped += async (s, e) => await OnRemoveTag(tag);
+                removeLabel.GestureRecognizers.Add(removeTapGesture);
+                tagStack.Children.Add(removeLabel);
+
+                tagBorder.Content = tagStack;
+                TagsContainer.Children.Add(tagBorder);
+            }
+        }
+    }
+
+    private async Task OnRemoveTag(string tag)
+    {
+        if (_selectedIssue == null || string.IsNullOrWhiteSpace(tag)) return;
+
+        try
+        {
+            if (_commandExecutor == null || _commandParser == null || _commandPostingService == null)
+            {
+                await DisplayAlert("Error", "Services not initialized", "OK");
+                return;
+            }
+
+            string command = $"/notnow tags remove {tag}";
+
+            // Parse command
+            var parseResult = _commandParser.Parse(command, CommandContext.Comment);
+            if (!parseResult.Commands.Any())
+            {
+                await DisplayAlert("Error", "Failed to parse remove tag command", "OK");
+                return;
+            }
+
+            // Execute command
+            var context = new CommandExecutionContext
+            {
+                IssueNumber = _selectedIssue.Number,
+                User = "current-user",
+                CommandContext = CommandContext.Comment,
+                RawText = command
+            };
+
+            var result = await _commandExecutor.ExecuteCommandsAsync(parseResult.Commands, context);
+
+            if (result.Success)
+            {
+                // Post the command to GitHub
+                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+
+                // Add a small delay to ensure GitHub has processed the command
+                await Task.Delay(1000);
+
+                // Reload issue details to show updated tags
+                await LoadIssueDetails(_selectedIssue.Number);
+            }
+            else
+            {
+                await DisplayAlert("Error", $"Failed to remove tag: {result.Summary}", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to remove tag: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnAddTagClicked(object sender, EventArgs e)
+    {
+        // Show the tag input panel
+        TagNameInput.Text = "";
+        TagInputPanel.IsVisible = true;
+        TagNameInput.Focus();
+    }
+
+    private void OnCancelTagInput(object sender, EventArgs e)
+    {
+        // Hide the tag input panel
+        TagInputPanel.IsVisible = false;
+        TagNameInput.Text = "";
+    }
+
+    private async void OnSubmitTag(object sender, EventArgs e)
+    {
+        if (_selectedIssue == null || string.IsNullOrWhiteSpace(TagNameInput.Text)) return;
+
+        try
+        {
+            if (_commandExecutor == null || _commandParser == null || _commandPostingService == null)
+            {
+                await DisplayAlert("Error", "Services not initialized", "OK");
+                return;
+            }
+
+            string tag = TagNameInput.Text.Trim();
+            string command = $"/notnow tags add {tag}";
+
+            // Parse command
+            var parseResult = _commandParser.Parse(command, CommandContext.Comment);
+            if (!parseResult.Commands.Any())
+            {
+                await DisplayAlert("Error", "Failed to parse add tag command", "OK");
+                return;
+            }
+
+            // Execute command
+            var context = new CommandExecutionContext
+            {
+                IssueNumber = _selectedIssue.Number,
+                User = "current-user",
+                CommandContext = CommandContext.Comment,
+                RawText = command
+            };
+
+            var result = await _commandExecutor.ExecuteCommandsAsync(parseResult.Commands, context);
+
+            if (result.Success)
+            {
+                // Post the command to GitHub
+                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+
+                // Hide the input panel
+                TagInputPanel.IsVisible = false;
+                TagNameInput.Text = "";
+
+                // Add a small delay to ensure GitHub has processed the command
+                await Task.Delay(1000);
+
+                // Reload issue details to show updated tags
+                await LoadIssueDetails(_selectedIssue.Number);
+            }
+            else
+            {
+                await DisplayAlert("Error", $"Failed to add tag: {result.Summary}", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to add tag: {ex.Message}", "OK");
         }
     }
 
@@ -410,6 +616,33 @@ public partial class TerminalPage : ContentPage
 
         // Refresh comment display
         DisplayComments();
+    }
+
+    private async void OnClosedIssuesToggled(object? sender, EventArgs e)
+    {
+        _hideClosedIssues = !_hideClosedIssues;
+
+        // Update toggle appearance
+        if (ClosedIssuesToggle != null && ClosedIssuesToggleBorder != null)
+        {
+            if (_hideClosedIssues)
+            {
+                // ON state - hiding closed issues (default)
+                ClosedIssuesToggleBorder.BackgroundColor = Color.FromArgb("#4A9EFF");
+                ClosedIssuesToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                ClosedIssuesToggle.TextColor = Color.FromArgb("#FFFFFF");
+            }
+            else
+            {
+                // OFF state - showing closed issues
+                ClosedIssuesToggleBorder.BackgroundColor = Color.FromArgb("#2A2A2A");
+                ClosedIssuesToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                ClosedIssuesToggle.TextColor = Color.FromArgb("#808080");
+            }
+        }
+
+        // Reload issues with new filter
+        await LoadIssuesAsync();
     }
 
     private string GetRelativeTime(DateTimeOffset dateTime)
@@ -1399,7 +1632,7 @@ public partial class TerminalPage : ContentPage
                 _selectedIssue = new IssueItem
                 {
                     Number = newIssue.Number,
-                    DisplayText = $"#{newIssue.Number}: {newIssue.Title}"
+                    DisplayText = $"#{newIssue.Number} {(newIssue.Title.Length > 45 ? newIssue.Title.Substring(0, 45) + "..." : newIssue.Title)}"
                 };
 
                 // Find and select the issue in the CollectionView

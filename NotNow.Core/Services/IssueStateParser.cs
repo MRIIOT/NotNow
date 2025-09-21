@@ -93,11 +93,29 @@ public class IssueStateParser : IIssueStateParser
 
                 case "tags":
                 case "tag":
-                    var tags = args.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(t => t.Trim())
-                        .Where(t => !string.IsNullOrEmpty(t));
-                    state.Tags.AddRange(tags);
-                    state.Tags = state.Tags.Distinct().ToList();
+                    // Parse tags command: /notnow tags add tag1,tag2 or /notnow tags remove tag1
+                    var tagParts = args.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                    if (tagParts.Length >= 2)
+                    {
+                        var action = tagParts[0].ToLower();
+                        var tagList = tagParts[1].Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(t => t.Trim())
+                            .Where(t => !string.IsNullOrEmpty(t))
+                            .ToList();
+
+                        if (action == "add")
+                        {
+                            state.Tags.AddRange(tagList);
+                            state.Tags = state.Tags.Distinct().ToList();
+                        }
+                        else if (action == "remove")
+                        {
+                            foreach (var tag in tagList)
+                            {
+                                state.Tags.Remove(tag);
+                            }
+                        }
+                    }
                     break;
 
                 case "subtask":
@@ -121,8 +139,8 @@ public class IssueStateParser : IIssueStateParser
                     if (!string.IsNullOrWhiteSpace(args))
                     {
                         // Extract just the subtask ID (first word before any parameters)
-                        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        var subtaskId = parts.Length > 0 ? parts[0] : args.Trim();
+                        var completeParts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var subtaskId = completeParts.Length > 0 ? completeParts[0] : args.Trim();
                         
                         var subtask = state.Subtasks.FirstOrDefault(s => s.Id == subtaskId);
                         if (subtask != null)
@@ -169,8 +187,8 @@ public class IssueStateParser : IIssueStateParser
                     if (!string.IsNullOrWhiteSpace(args))
                     {
                         // Extract just the subtask ID (first word before any parameters)
-                        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        var subtaskId = parts.Length > 0 ? parts[0] : args.Trim();
+                        var reopenParts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var subtaskId = reopenParts.Length > 0 ? reopenParts[0] : args.Trim();
                         
                         var subtask = state.Subtasks.FirstOrDefault(s => s.Id == subtaskId);
                         if (subtask != null)
