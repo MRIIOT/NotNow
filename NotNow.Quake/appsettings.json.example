@@ -1,0 +1,23 @@
+{
+  "GitHubRepositories": [
+    {
+      "Id": "notnow-example01",
+      "DisplayName": "NotNow Example 01",
+      "Owner": "MRIIOT",
+      "Repository": "NotNow_TaskDemo_01",
+      "PersonalAccessToken": "ghp_xxx"
+    },
+    {
+      "Id": "notnow-example02",
+      "DisplayName": "NotNow Example 02",
+      "Owner": "MRIIOT",
+      "Repository": "NotNow_TaskDemo_02",
+      "PersonalAccessToken": "ghp_xxx"
+    }
+  ],
+  "DefaultRepositoryId": "notnow-example01",
+  "Window": {
+    "HeightPercentage": 0.6,
+    "AnimationSpeed": 15
+  }
+}

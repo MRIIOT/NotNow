@@ -16,9 +16,44 @@ public partial class App : MauiWinUIApplication
 	/// </summary>
 	public App()
 	{
-		this.InitializeComponent();
+		try
+		{
+			Console.WriteLine("[Windows.App] Constructor starting...");
+			System.Diagnostics.Debug.WriteLine("[Windows.App] Constructor starting...");
+			
+			this.InitializeComponent();
+			
+			Console.WriteLine("[Windows.App] InitializeComponent completed");
+			System.Diagnostics.Debug.WriteLine("[Windows.App] InitializeComponent completed");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[Windows.App] Constructor error: {ex}");
+			System.Diagnostics.Debug.WriteLine($"[Windows.App] Constructor error: {ex}");
+			throw;
+		}
 	}
 
-	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+	protected override MauiApp CreateMauiApp()
+	{
+		try
+		{
+			Console.WriteLine("[Windows.App] CreateMauiApp starting...");
+			System.Diagnostics.Debug.WriteLine("[Windows.App] CreateMauiApp starting...");
+			
+			var app = MauiProgram.CreateMauiApp();
+			
+			Console.WriteLine("[Windows.App] CreateMauiApp completed");
+			System.Diagnostics.Debug.WriteLine("[Windows.App] CreateMauiApp completed");
+			
+			return app;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[Windows.App] CreateMauiApp error: {ex}");
+			System.Diagnostics.Debug.WriteLine($"[Windows.App] CreateMauiApp error: {ex}");
+			throw;
+		}
+	}
 }
 

@@ -16,28 +16,69 @@ public partial class App : Application
 
 	public App()
 	{
-		InitializeComponent();
+		try
+		{
+			Console.WriteLine("[App] Constructor starting...");
+			System.Diagnostics.Debug.WriteLine("[App] Constructor starting...");
+			
+			InitializeComponent();
+			
+			Console.WriteLine("[App] InitializeComponent completed");
+			System.Diagnostics.Debug.WriteLine("[App] InitializeComponent completed");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[App] Constructor error: {ex}");
+			System.Diagnostics.Debug.WriteLine($"[App] Constructor error: {ex}");
+			throw;
+		}
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		_mainWindow = new Window(new TerminalPage());
+		try
+		{
+			Console.WriteLine("[App] CreateWindow starting...");
+			System.Diagnostics.Debug.WriteLine("[App] CreateWindow starting...");
+			
+			_mainWindow = new Window(new TerminalPage());
+			Console.WriteLine("[App] Main window created with TerminalPage");
 
 #if WINDOWS
-		Microsoft.Maui.Handlers.WindowHandler.Mapper.AppendToMapping("QuakeTerminal", (handler, view) =>
-		{
-			var nativeWindow = handler.PlatformView;
-			nativeWindow.Activate();
-
-			// Set up global hotkey for CTRL+~
-			if (handler is Microsoft.Maui.Handlers.WindowHandler windowHandler)
+			Console.WriteLine("[App] Configuring Windows-specific handlers...");
+			Microsoft.Maui.Handlers.WindowHandler.Mapper.AppendToMapping("QuakeTerminal", (handler, view) =>
 			{
-				RegisterHotKey(windowHandler);
-			}
-		});
+				Console.WriteLine("[App] WindowHandler mapping executing...");
+				try
+				{
+					var nativeWindow = handler.PlatformView;
+					nativeWindow.Activate();
+					Console.WriteLine("[App] Native window activated");
+
+					// Set up global hotkey for CTRL+~
+					if (handler is Microsoft.Maui.Handlers.WindowHandler windowHandler)
+					{
+						RegisterHotKey(windowHandler);
+						Console.WriteLine("[App] Hotkey registered");
+					}
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"[App] WindowHandler mapping error: {ex.Message}");
+					System.Diagnostics.Debug.WriteLine($"[App] WindowHandler mapping error: {ex}");
+				}
+			});
 #endif
 
-		return _mainWindow;
+			Console.WriteLine("[App] CreateWindow completed successfully");
+			return _mainWindow;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[App] CreateWindow error: {ex}");
+			System.Diagnostics.Debug.WriteLine($"[App] CreateWindow error: {ex}");
+			throw;
+		}
 	}
 
 #if WINDOWS

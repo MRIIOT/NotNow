@@ -2,25 +2,31 @@ using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 using NotNow.Core.Services;
 using NotNow.Core.Console;
+using NotNow.GitHubService.Models;
 using NotNow.GitHubService.Interfaces;
+using NotNow.GitHubService.Services;
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using NotNow.Core.Commands.Execution;
 using NotNow.Core.Commands.Parser;
 using NotNow.Core.Commands.Framework;
 using NotNow.Core.Commands.Registry;
+using System.Diagnostics;
 
 namespace NotNow.Quake.Views;
 
-public partial class TerminalPage : ContentPage
+public partial class TerminalPage : ContentPage, IDisposable
 {
     private IGitHubService? _gitHubService;
+    private IGitHubServiceManager? _gitHubServiceManager;
     private IIssueStateService? _stateService;
     private ICommandExecutor? _commandExecutor;
     private CommandAutoCompleter? _autoCompleter;
     private ICommandParser? _commandParser;
     private ICommandPostingService? _commandPostingService;
     private IIssueStateParser? _issueStateParser;
+    private IConfiguration? _configuration;
     private ObservableCollection<IssueItem> _issues;
     private IssueItem? _selectedIssue;
     private List<string> _currentSuggestions = new();
@@ -29,59 +35,125 @@ public partial class TerminalPage : ContentPage
     private List<Octokit.IssueComment>? _allComments;
     private string? _pendingSubtaskId;  // Track subtask being completed
     private string? _pendingSubtaskStatus;  // Track original status for cancellation
+    private string? _currentRepositoryId;
+    private FileSystemWatcher? _configWatcher;
+    private DateTime _lastConfigReload = DateTime.MinValue;
+    private IServiceScope? _currentServiceScope;
 
     public TerminalPage()
     {
-        InitializeComponent();
+        try
+        {
+            Console.WriteLine("[TerminalPage] Constructor starting...");
+            System.Diagnostics.Debug.WriteLine("[TerminalPage] Constructor starting...");
 
-        _issues = new ObservableCollection<IssueItem>();
-        IssuesListView.ItemsSource = _issues;
-        IssuesListView.SelectionChanged += OnIssueSelectionChanged;
+            InitializeComponent();
+            Console.WriteLine("[TerminalPage] InitializeComponent completed");
 
-        // Services will be initialized when the page is loaded
-        Loaded += OnPageLoaded;
+            _issues = new ObservableCollection<IssueItem>();
+            IssuesListView.ItemsSource = _issues;
+            IssuesListView.SelectionChanged += OnIssueSelectionChanged;
+            Console.WriteLine("[TerminalPage] ListView configured");
+
+            // Services will be initialized when the page is loaded
+            Loaded += OnPageLoaded;
+            Console.WriteLine("[TerminalPage] Constructor completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TerminalPage] Constructor error: {ex}");
+            System.Diagnostics.Debug.WriteLine($"[TerminalPage] Constructor error: {ex}");
+            throw;
+        }
     }
 
     private async void OnPageLoaded(object? sender, EventArgs e)
     {
-        // Get services from DI after the page is loaded
-        var serviceProvider = Handler?.MauiContext?.Services;
-        if (serviceProvider != null)
+        try
         {
-            _gitHubService = serviceProvider.GetService<IGitHubService>();
-            _stateService = serviceProvider.GetService<IIssueStateService>();
-            _commandExecutor = serviceProvider.GetService<ICommandExecutor>();
-            _autoCompleter = serviceProvider.GetService<CommandAutoCompleter>();
-            _commandParser = serviceProvider.GetService<ICommandParser>();
-            _commandPostingService = serviceProvider.GetService<ICommandPostingService>();
-            _issueStateParser = serviceProvider.GetService<IIssueStateParser>();
+            Console.WriteLine("[TerminalPage] OnPageLoaded starting...");
+            System.Diagnostics.Debug.WriteLine("[TerminalPage] OnPageLoaded starting...");
 
-            // Initialize command registry
-            var initService = serviceProvider.GetService<ICommandInitializationService>();
-            if (initService != null)
+            // Get services from DI after the page is loaded
+            var serviceProvider = Handler?.MauiContext?.Services;
+            Console.WriteLine($"[TerminalPage] ServiceProvider available: {serviceProvider != null}");
+
+            if (serviceProvider != null)
             {
-                initService.Initialize();
+                try
+                {
+                    _configuration = serviceProvider.GetService<IConfiguration>();
+                    Console.WriteLine($"[TerminalPage] Configuration loaded: {_configuration != null}");
+
+                    _gitHubServiceManager = serviceProvider.GetService<IGitHubServiceManager>();
+                    Console.WriteLine($"[TerminalPage] GitHubServiceManager loaded: {_gitHubServiceManager != null}");
+
+                    _stateService = serviceProvider.GetService<IIssueStateService>();
+                    Console.WriteLine($"[TerminalPage] StateService loaded: {_stateService != null}");
+
+                    _commandExecutor = serviceProvider.GetService<ICommandExecutor>();
+                    _autoCompleter = serviceProvider.GetService<CommandAutoCompleter>();
+                    _commandParser = serviceProvider.GetService<ICommandParser>();
+                    _commandPostingService = serviceProvider.GetService<ICommandPostingService>();
+                    _issueStateParser = serviceProvider.GetService<IIssueStateParser>();
+                    Console.WriteLine("[TerminalPage] All services loaded");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[TerminalPage] Error loading services: {ex}");
+                    System.Diagnostics.Debug.WriteLine($"[TerminalPage] Error loading services: {ex}");
+                    throw;
+                }
+
+                // Initialize command registry
+                var initService = serviceProvider.GetService<ICommandInitializationService>();
+                if (initService != null)
+                {
+                    Console.WriteLine("[TerminalPage] Initializing command registry...");
+                    initService.Initialize();
+                    Console.WriteLine("[TerminalPage] Command registry initialized");
+                }
+
+                // Initialize repository selector
+                Console.WriteLine("[TerminalPage] Initializing repository selector...");
+                InitializeRepositorySelector();
+
+                // Setup config file watcher
+                Console.WriteLine("[TerminalPage] Setting up config watcher...");
+                SetupConfigWatcher();
             }
-        }
+            else
+            {
+                Console.WriteLine("[TerminalPage] WARNING: ServiceProvider is null!");
+            }
 
-        // Initialize filter toggle appearance (OFF by default - commands hidden)
-        if (CommandFilterToggle != null && CommandFilterToggleBorder != null)
+            // Initialize filter toggle appearance (OFF by default - commands hidden)
+            Console.WriteLine("[TerminalPage] Initializing filter toggles...");
+            if (CommandFilterToggle != null && CommandFilterToggleBorder != null)
+            {
+                CommandFilterToggleBorder.BackgroundColor = Color.FromArgb("#2A2A2A");
+                CommandFilterToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                CommandFilterToggle.TextColor = Color.FromArgb("#808080");
+            }
+
+            // Initialize closed issues toggle appearance (ON by default - closed issues hidden)
+            if (ClosedIssuesToggle != null && ClosedIssuesToggleBorder != null)
+            {
+                ClosedIssuesToggleBorder.BackgroundColor = Color.FromArgb("#4A9EFF");
+                ClosedIssuesToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                ClosedIssuesToggle.TextColor = Color.FromArgb("#FFFFFF");
+            }
+
+            // Load issues after services are initialized
+            Console.WriteLine("[TerminalPage] Loading issues...");
+            LoadIssues();
+            Console.WriteLine("[TerminalPage] OnPageLoaded completed successfully");
+        }
+        catch (Exception ex)
         {
-            CommandFilterToggleBorder.BackgroundColor = Color.FromArgb("#2A2A2A");
-            CommandFilterToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
-            CommandFilterToggle.TextColor = Color.FromArgb("#808080");
+            Console.WriteLine($"[TerminalPage] OnPageLoaded error: {ex}");
+            System.Diagnostics.Debug.WriteLine($"[TerminalPage] OnPageLoaded error: {ex}");
         }
-
-        // Initialize closed issues toggle appearance (ON by default - closed issues hidden)
-        if (ClosedIssuesToggle != null && ClosedIssuesToggleBorder != null)
-        {
-            ClosedIssuesToggleBorder.BackgroundColor = Color.FromArgb("#4A9EFF");
-            ClosedIssuesToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
-            ClosedIssuesToggle.TextColor = Color.FromArgb("#FFFFFF");
-        }
-
-        // Load issues after services are initialized
-        LoadIssues();
     }
 
     private async Task RefreshIssues()
@@ -1781,6 +1853,272 @@ public partial class TerminalPage : ContentPage
         DeveloperModeContent.Text = "";
     }
 
+    private void InitializeRepositorySelector()
+    {
+        if (_gitHubServiceManager == null) return;
+
+        var repositories = _gitHubServiceManager.GetRepositories();
+        if (!repositories.Any())
+        {
+            RepositorySelector.IsEnabled = false;
+            return;
+        }
+
+        // Populate the picker
+        RepositorySelector.ItemsSource = repositories.Select(r => r.DisplayName).ToList();
+
+        // Select default repository
+        var defaultRepoId = _configuration?.GetValue<string>("DefaultRepositoryId");
+        var defaultRepo = repositories.FirstOrDefault(r => r.Id == defaultRepoId) ?? repositories.First();
+
+        _currentRepositoryId = defaultRepo.Id;
+        _gitHubServiceManager.CurrentRepositoryId = _currentRepositoryId;
+        _gitHubService = _gitHubServiceManager.GetService(_currentRepositoryId);
+
+        var selectedIndex = repositories.IndexOf(defaultRepo);
+        if (selectedIndex >= 0)
+        {
+            RepositorySelector.SelectedIndex = selectedIndex;
+        }
+    }
+
+    private async void OnRepositorySelectionChanged(object? sender, EventArgs e)
+    {
+        if (RepositorySelector.SelectedIndex < 0 || _gitHubServiceManager == null) return;
+
+        var repositories = _gitHubServiceManager.GetRepositories();
+        if (RepositorySelector.SelectedIndex >= repositories.Count) return;
+
+        var selectedRepo = repositories[RepositorySelector.SelectedIndex];
+        if (selectedRepo.Id == _currentRepositoryId) return;
+
+        // Save any active work
+        if (_selectedIssue != null && !string.IsNullOrEmpty(_selectedIssue.Title))
+        {
+            // Could prompt to save work here if needed
+        }
+
+        // Switch repository
+        _currentRepositoryId = selectedRepo.Id;
+        _gitHubServiceManager.CurrentRepositoryId = _currentRepositoryId;
+        _gitHubService = _gitHubServiceManager.GetService(_currentRepositoryId);
+
+        // Reload scoped services that depend on IGitHubService
+        // We need fresh instances since they cache the IGitHubService at construction
+        var serviceProvider = Handler?.MauiContext?.Services;
+        if (serviceProvider != null)
+        {
+            // Dispose the previous service scope if it exists
+            _currentServiceScope?.Dispose();
+
+            // Create a new scope for getting fresh services
+            _currentServiceScope = serviceProvider.CreateScope();
+            var scopedProvider = _currentServiceScope.ServiceProvider;
+
+            // Get fresh instances from the new scope
+            _commandPostingService = scopedProvider.GetService<ICommandPostingService>();
+            _commandExecutor = scopedProvider.GetService<ICommandExecutor>();
+            _issueStateParser = scopedProvider.GetService<IIssueStateParser>();
+        }
+
+        // Clear current state
+        _selectedIssue = null;
+        _allComments = null;
+        _issues.Clear();
+        ClearIssueDetails();
+
+        // Load issues for new repository
+        await LoadIssuesAsync();
+    }
+
+    private void OnLogoClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://notnowboss.com",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            DisplayAlert("Error", $"Failed to open website: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnSettingsClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            var settingsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+
+            // Ensure file exists
+            if (!File.Exists(settingsPath))
+            {
+                // Create default settings file
+                var defaultConfig = new
+                {
+                    GitHubRepositories = new[]
+                    {
+                        new
+                        {
+                            Id = "default",
+                            DisplayName = "Default Repository",
+                            Owner = "your-username",
+                            Repository = "your-repo",
+                            PersonalAccessToken = "ghp_your_token_here"
+                        }
+                    },
+                    DefaultRepositoryId = "default",
+                    Window = new
+                    {
+                        HeightPercentage = 0.6,
+                        AnimationSpeed = 15
+                    }
+                };
+
+                var json = System.Text.Json.JsonSerializer.Serialize(defaultConfig, new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(settingsPath, json);
+            }
+
+            // Open in default editor
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = settingsPath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            DisplayAlert("Error", $"Failed to open settings: {ex.Message}", "OK");
+        }
+    }
+
+    private void SetupConfigWatcher()
+    {
+        try
+        {
+            var settingsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+            var directory = System.IO.Path.GetDirectoryName(settingsPath);
+
+            if (string.IsNullOrEmpty(directory)) return;
+
+            _configWatcher = new FileSystemWatcher(directory)
+            {
+                Filter = "appsettings.json",
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+            };
+
+            _configWatcher.Changed += OnConfigFileChanged;
+            _configWatcher.EnableRaisingEvents = true;
+        }
+        catch (Exception ex)
+        {
+            // Silently fail - config watching is not critical
+            System.Diagnostics.Debug.WriteLine($"Failed to setup config watcher: {ex.Message}");
+        }
+    }
+
+    private async void OnConfigFileChanged(object sender, FileSystemEventArgs e)
+    {
+        // Debounce multiple change events
+        var now = DateTime.UtcNow;
+        if ((now - _lastConfigReload).TotalMilliseconds < 1000)
+            return;
+        _lastConfigReload = now;
+
+        // Wait a bit for file to be written completely
+        await Task.Delay(500);
+
+        // Reload configuration on UI thread
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            await ReloadConfiguration();
+        });
+    }
+
+    private async Task ReloadConfiguration()
+    {
+        try
+        {
+            // Save current selection
+            var currentRepoId = _currentRepositoryId;
+            var currentIssueNumber = _selectedIssue?.Number;
+
+            // Reload configuration
+            var settingsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+            if (!File.Exists(settingsPath)) return;
+
+            var json = await File.ReadAllTextAsync(settingsPath);
+            var config = System.Text.Json.JsonSerializer.Deserialize<ConfigRoot>(json);
+
+            if (config?.GitHubRepositories == null || !config.GitHubRepositories.Any())
+            {
+                await DisplayAlert("Configuration Error", "No repositories configured in appsettings.json", "OK");
+                return;
+            }
+
+            // Update service manager
+            _gitHubServiceManager?.UpdateServices(config.GitHubRepositories);
+
+            // Reinitialize repository selector
+            InitializeRepositorySelector();
+
+            // Try to restore previous selection
+            var repositories = _gitHubServiceManager?.GetRepositories();
+            if (repositories != null)
+            {
+                var prevRepo = repositories.FirstOrDefault(r => r.Id == currentRepoId);
+                if (prevRepo != null)
+                {
+                    var index = repositories.IndexOf(prevRepo);
+                    if (index >= 0)
+                    {
+                        RepositorySelector.SelectedIndex = index;
+                    }
+                }
+                else
+                {
+                    // Previous repo no longer exists, load first one
+                    await LoadIssuesAsync();
+                }
+            }
+
+            await DisplayAlert("Settings Reloaded", "Configuration has been refreshed", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Configuration Error", $"Failed to reload settings: {ex.Message}", "OK");
+        }
+    }
+
+    private void ClearIssueDetails()
+    {
+        IssueTitle.Text = "";
+        IssueDescription.Text = "";
+        StatusLabel.Text = "";
+        PriorityLabel.Text = "";
+        AssigneeLabel.Text = "";
+        DueLabel.Text = "";
+        EstimateLabel.Text = "";
+        SubtasksList.Children.Clear();
+        CommentsList.Children.Clear();
+        TagsContainer.Children.Clear();
+        WeekRowsContainer.Children.Clear();
+        TotalTimeLabel.Text = "Total: 0h";
+    }
+
+    // Helper class for deserializing config
+    private class ConfigRoot
+    {
+        public List<GitHubRepositoryConfig> GitHubRepositories { get; set; } = new();
+        public string? DefaultRepositoryId { get; set; }
+    }
+
     public class IssueItem
     {
         public int Number { get; set; }
@@ -1791,5 +2129,11 @@ public partial class TerminalPage : ContentPage
         public string CheckboxText => IsClosed ? "☑" : "☐";
         public Color TextColor => IsClosed ? Color.FromArgb("#808080") : Color.FromArgb("#E0E0E0");
         public TextDecorations TextDecorations => IsClosed ? TextDecorations.Strikethrough : TextDecorations.None;
+    }
+
+    public void Dispose()
+    {
+        _currentServiceScope?.Dispose();
+        _configWatcher?.Dispose();
     }
 }

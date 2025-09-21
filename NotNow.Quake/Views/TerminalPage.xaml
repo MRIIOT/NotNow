@@ -1055,10 +1055,13 @@
             </Grid>
         </Border>
 
-        <!-- Logo and Toggle Hint -->
+        <!-- Footer with Repository Selector and Settings -->
         <Grid Grid.Row="1" HorizontalOptions="Fill" VerticalOptions="Center" Margin="10,5">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
@@ -1068,14 +1071,65 @@
                    FontFamily="CascadiaMono"
                    FontSize="12"
                    VerticalTextAlignment="Center"
-                   HorizontalOptions="Start" />
+                   HorizontalOptions="Start"
+                   Margin="0,0,20,0" />
 
-            <Image Grid.Column="1"
+            <!-- Repository Selector -->
+            <HorizontalStackLayout Grid.Column="2"
+                                   Spacing="8"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,20,0">
+                <Label Text="Repository:"
+                       TextColor="#606060"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       VerticalTextAlignment="Center" />
+
+                <Picker x:Name="RepositorySelector"
+                        TextColor="#4A9EFF"
+                        FontFamily="CascadiaMono"
+                        FontSize="12"
+                        BackgroundColor="Transparent"
+                        WidthRequest="200"
+                        SelectedIndexChanged="OnRepositorySelectionChanged" />
+            </HorizontalStackLayout>
+
+            <!-- Settings Button -->
+            <Border Grid.Column="3"
+                    x:Name="SettingsButton"
+                    BackgroundColor="#2A2A2A"
+                    StrokeThickness="1"
+                    Stroke="#4A9EFF"
+                    HeightRequest="30"
+                    WidthRequest="30"
+                    VerticalOptions="Center"
+                    Margin="0,0,10,0">
+                <Label Text="&#xE8B8;"
+                       TextColor="#4A9EFF"
+                       FontFamily="MaterialIcons"
+                       FontSize="20"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       ToolTipProperties.Text="Edit settings">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSettingsClicked" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </Border>
+
+            <Image Grid.Column="4"
                    Source="notnow_logo_square.png"
                    WidthRequest="30"
                    HeightRequest="30"
                    Aspect="AspectFit"
-                   HorizontalOptions="End" />
+                   HorizontalOptions="End"
+                   ToolTipProperties.Text="Visit NotNowBoss.com">
+                <Image.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnLogoClicked" />
+                </Image.GestureRecognizers>
+            </Image>
         </Grid>
 
         <!-- Subtask Completion Panel (overlay, hidden by default) -->
