@@ -202,23 +202,8 @@ public partial class TerminalPage : ContentPage
             DueLabel.Text = state.DueDate?.ToString("yyyy-MM-dd") ?? "not set";
             EstimateLabel.Text = state.Estimate ?? "not set";
 
-            // Update time tracking
-            TotalTimeLabel.Text = FormatTimeSpan(state.TotalTimeSpent);
-
-            // Calculate today's time
-            var todayTime = TimeSpan.FromSeconds(
-                state.Sessions
-                    .Where(s => s.StartedAt.Date == DateTime.UtcNow.Date)
-                    .Sum(s => s.Duration.TotalSeconds));
-            TodayTimeLabel.Text = FormatTimeSpan(todayTime);
-
-            // Calculate this week's time
-            var weekStart = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek);
-            var weekTime = TimeSpan.FromSeconds(
-                state.Sessions
-                    .Where(s => s.StartedAt >= weekStart)
-                    .Sum(s => s.Duration.TotalSeconds));
-            WeekTimeLabel.Text = FormatTimeSpan(weekTime);
+            // Update time tracking calendar
+            UpdateTimeTrackingCalendar(state);
 
             // Update subtasks
             SubtasksList.Children.Clear();
@@ -455,6 +440,157 @@ public partial class TerminalPage : ContentPage
         return string.Join(" ", parts);
     }
 
+    private void UpdateTimeTrackingCalendar(Core.Models.IssueState state)
+    {
+        WeekRowsContainer.Children.Clear();
+        
+        var today = DateTime.UtcNow.Date;
+        var currentWeekStart = today.AddDays(-(int)today.DayOfWeek); // Sunday of current week
+        var fourWeeksAgo = currentWeekStart.AddDays(-21); // Start 3 weeks before current week
+        
+        // Group sessions by date (using EndedAt for completed sessions, StartedAt for active ones)
+        var sessionsByDate = state.Sessions
+            .Where(s => (s.EndedAt ?? s.StartedAt).Date >= fourWeeksAgo)
+            .GroupBy(s => (s.EndedAt ?? s.StartedAt).Date)
+            .ToDictionary(g => g.Key, g => TimeSpan.FromSeconds(g.Sum(s => s.Duration.TotalSeconds)));
+        
+        decimal totalHours = 0;
+        int daysWithTime = 0;
+        
+        // Generate 4 weeks
+        for (int weekOffset = -3; weekOffset <= 0; weekOffset++)
+        {
+            var weekStart = currentWeekStart.AddDays(weekOffset * 7);
+            var isCurrentWeek = weekOffset == 0;
+            
+            var weekGrid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitionCollection
+                {
+                    new ColumnDefinition { Width = 60 },  // Date label column
+                    new ColumnDefinition { Width = 50 },  // Day columns - wider for better readability
+                    new ColumnDefinition { Width = 50 },
+                    new ColumnDefinition { Width = 50 },
+                    new ColumnDefinition { Width = 50 },
+                    new ColumnDefinition { Width = 50 },
+                    new ColumnDefinition { Width = 50 },
+                    new ColumnDefinition { Width = 50 },
+                    new ColumnDefinition { Width = new GridLength(15) },  // Separator
+                    new ColumnDefinition { Width = new GridLength(80) }   // Week total
+                }
+            };
+
+            // Add week start date label (MM/DD)
+            var weekDateLabel = new Label
+            {
+                Text = weekStart.ToString("MM/dd"),
+                TextColor = Color.FromArgb("#808080"),
+                FontFamily = "CascadiaMono",
+                FontSize = 12,  // Larger font
+                HorizontalTextAlignment = TextAlignment.End,
+                VerticalTextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 5, 0)
+            };
+            Grid.SetColumn(weekDateLabel, 0);
+            weekGrid.Children.Add(weekDateLabel);
+            
+            decimal weekTotal = 0;
+            
+            // Add each day of the week
+            for (int day = 0; day < 7; day++)
+            {
+                var date = weekStart.AddDays(day);
+                var isFuture = date > today;
+                var isToday = date == today;
+                
+                string timeText = "-";
+                Color textColor = Color.FromArgb("#606060");
+                
+                if (sessionsByDate.TryGetValue(date, out var dayTime))
+                {
+                    var hours = (decimal)dayTime.TotalHours;
+                    weekTotal += hours;
+                    totalHours += hours;
+                    daysWithTime++;
+                    
+                    // Format hours compactly
+                    if (hours >= 1)
+                    {
+                        timeText = hours.ToString("0.#");
+                    }
+                    else if (hours > 0)
+                    {
+                        // Show minutes for times under 1 hour
+                        var minutes = (int)(hours * 60);
+                        timeText = $"{minutes}m";
+                    }
+                    
+                    textColor = Color.FromArgb("#FFFFFF");
+                }
+                
+                // Add brackets for current/future days in current week
+                if (isCurrentWeek && (isToday || isFuture) && timeText != "-")
+                {
+                    timeText = $"[{timeText}]";
+                    textColor = Color.FromArgb("#4A9EFF");
+                }
+                else if (isToday && timeText == "-")
+                {
+                    timeText = "[.]";
+                    textColor = Color.FromArgb("#4A9EFF");
+                }
+                
+                var dayLabel = new Label
+                {
+                    Text = timeText,
+                    TextColor = textColor,
+                    FontFamily = "CascadiaMono",
+                    FontSize = 13,  // Larger font
+                    HorizontalTextAlignment = TextAlignment.Center,
+                    VerticalTextAlignment = TextAlignment.Center
+                };
+                
+                Grid.SetColumn(dayLabel, day + 1);  // +1 because column 0 is now the date label
+                weekGrid.Children.Add(dayLabel);
+            }
+
+            // Add separator
+            var separator = new Label
+            {
+                Text = "│",
+                TextColor = Color.FromArgb("#404040"),
+                FontFamily = "CascadiaMono",
+                FontSize = 13,  // Larger font
+                HorizontalTextAlignment = TextAlignment.Center
+            };
+            Grid.SetColumn(separator, 8);  // Column 8 now (was 7)
+            weekGrid.Children.Add(separator);
+
+            // Add week total
+            var weekTotalLabel = new Label
+            {
+                Text = weekTotal > 0 ? $"{weekTotal:0.#}h" : "-",
+                TextColor = isCurrentWeek ? Color.FromArgb("#4A9EFF") : Color.FromArgb("#FFFFFF"),
+                FontFamily = "CascadiaMono",
+                FontSize = 13,  // Larger font
+                HorizontalTextAlignment = TextAlignment.Start
+            };
+
+            if (isCurrentWeek && weekTotal > 0)
+            {
+                weekTotalLabel.Text += " ←";
+            }
+
+            Grid.SetColumn(weekTotalLabel, 9);  // Column 9 now (was 8)
+            weekGrid.Children.Add(weekTotalLabel);
+            
+            WeekRowsContainer.Children.Add(weekGrid);
+        }
+        
+        // Update total only (removed average per day)
+        TotalTimeLabel.Text = $"Total: {totalHours:0.#}h";
+    }
+
     private void OnSubtasksTabTapped(object? sender, EventArgs e)
     {
         // Switch to Subtasks tab
@@ -653,6 +789,133 @@ public partial class TerminalPage : ContentPage
         // Clear the input fields
         CompletionTimeInput.Text = "";
         CompletionNotesInput.Text = "";
+    }
+
+    private void OnLogTimeButtonClicked(object sender, EventArgs e)
+    {
+        // Show the log time form
+        LogTimePanel.IsVisible = true;
+        
+        // Clear previous inputs
+        LogTimeDurationInput.Text = "";
+        LogTimeDescriptionInput.Text = "";
+        LogTimeDateInput.Text = "";
+        
+        // Focus on duration input
+        LogTimeDurationInput.Focus();
+    }
+
+    private async void OnLogTimeConfirm(object sender, EventArgs e)
+    {
+        if (_selectedIssue == null) return;
+
+        // Validate duration is provided
+        string duration = LogTimeDurationInput.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(duration))
+        {
+            await DisplayAlert("Error", "Duration is required", "OK");
+            return;
+        }
+
+        try
+        {
+            // Check if services are initialized
+            if (_commandParser == null)
+            {
+                await DisplayAlert("Error", "Command parser is not initialized", "OK");
+                return;
+            }
+            if (_commandExecutor == null)
+            {
+                await DisplayAlert("Error", "Command executor is not initialized", "OK");
+                return;
+            }
+            if (_commandPostingService == null)
+            {
+                await DisplayAlert("Error", "Command posting service is not initialized", "OK");
+                return;
+            }
+
+            // Build the time command
+            var commandBuilder = new System.Text.StringBuilder();
+            commandBuilder.Append($"/notnow time {duration}");
+
+            // Add description if provided
+            string description = LogTimeDescriptionInput.Text?.Trim();
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                // Escape quotes in description
+                string escapedDescription = description.Replace("\"", "\\\"");
+                commandBuilder.Append($" --description \"{escapedDescription}\"");
+            }
+
+            // Add date if provided
+            string date = LogTimeDateInput.Text?.Trim();
+            if (!string.IsNullOrWhiteSpace(date))
+            {
+                commandBuilder.Append($" --date {date}");
+            }
+
+            string command = commandBuilder.ToString();
+
+            // Parse command
+            var parseResult = _commandParser.Parse(command, CommandContext.Comment);
+            if (!parseResult.Commands.Any())
+            {
+                await DisplayAlert("Error", "Failed to parse time command", "OK");
+                return;
+            }
+
+            // Execute command
+            var context = new CommandExecutionContext
+            {
+                IssueNumber = _selectedIssue.Number,
+                User = "current-user", // TODO: Get from config
+                CommandContext = CommandContext.Comment,
+                RawText = command
+            };
+
+            var result = await _commandExecutor.ExecuteCommandsAsync(parseResult.Commands, context);
+
+            if (result.Success)
+            {
+                // Post the command with metadata to GitHub
+                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+
+                // Hide the form
+                LogTimePanel.IsVisible = false;
+
+                // Add a small delay to ensure GitHub has processed the command
+                await Task.Delay(1000);
+
+                // Reload issue details to show updated time tracking
+                await LoadIssueDetails(_selectedIssue.Number);
+            }
+            else
+            {
+                await DisplayAlert("Error", $"Failed to log time: {result.Summary}", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            var errorDetails = $"Failed to log time:\n\nException: {ex.GetType().Name}\n\nMessage: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}";
+            if (ex.InnerException != null)
+            {
+                errorDetails += $"\n\nInner Exception: {ex.InnerException.Message}";
+            }
+            await DisplayAlert("Error", errorDetails, "OK");
+        }
+    }
+
+    private void OnLogTimeCancel(object sender, EventArgs e)
+    {
+        // Hide the form
+        LogTimePanel.IsVisible = false;
+        
+        // Clear the input fields
+        LogTimeDurationInput.Text = "";
+        LogTimeDescriptionInput.Text = "";
+        LogTimeDateInput.Text = "";
     }
 
     private void OnCancelSubtaskCompletion(object? sender, EventArgs e)

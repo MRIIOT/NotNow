@@ -130,6 +130,26 @@ public class IssueStateParser : IIssueStateParser
                             subtask.Status = "done";
                             subtask.CompletedAt = timestamp;
                         }
+                        
+                        // Check if time was provided with the complete command
+                        var timeMatch = Regex.Match(args, @"--time\s+(\S+)");
+                        if (timeMatch.Success)
+                        {
+                            var duration = ParseTimeSpan(timeMatch.Groups[1].Value);
+                            if (duration.HasValue)
+                            {
+                                // Add a work session for the completed subtask
+                                var session = new WorkSession
+                                {
+                                    Id = Guid.NewGuid().ToString(),
+                                    StartedAt = timestamp - duration.Value,
+                                    EndedAt = timestamp,
+                                    Duration = duration.Value,
+                                    Description = subtask != null ? $"Completed: {subtask.Title}" : "Completed subtask"
+                                };
+                                state.Sessions.Add(session);
+                            }
+                        }
                     }
                     else
                     {
@@ -380,20 +400,37 @@ public class IssueStateParser : IIssueStateParser
 
     private void ParseTimeCommand(string args, IssueState state, DateTime timestamp)
     {
-        // Parse time log format: time 2h30m --description "Fixed bug"
+        // Parse time log format: time 2h30m --description "Fixed bug" --date 2025-01-10
         var duration = ParseTimeSpan(args);
         if (duration.HasValue)
         {
+            // Check for custom date
+            DateTime effectiveDate = timestamp;
+            var dateMatch = Regex.Match(args, @"--date\s+(\S+)");
+            if (dateMatch.Success)
+            {
+                if (DateTime.TryParse(dateMatch.Groups[1].Value, out var customDate))
+                {
+                    // Use the custom date but keep the same time of day as timestamp
+                    effectiveDate = customDate.Date + timestamp.TimeOfDay;
+                }
+            }
+
             var session = new WorkSession
             {
                 Id = Guid.NewGuid().ToString(),
-                StartedAt = timestamp - duration.Value,
-                EndedAt = timestamp,
+                StartedAt = effectiveDate - duration.Value,
+                EndedAt = effectiveDate,
                 Duration = duration.Value
             };
 
             // Check for description
             var descMatch = Regex.Match(args, @"--description\s+""([^""]+)""");
+            if (!descMatch.Success)
+            {
+                // Also try -d shorthand
+                descMatch = Regex.Match(args, @"-d\s+""([^""]+)""");
+            }
             if (descMatch.Success)
             {
                 session.Description = descMatch.Groups[1].Value;
