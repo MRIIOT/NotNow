@@ -689,6 +689,97 @@
                    HorizontalOptions="End" />
         </Grid>
 
+        <!-- Subtask Completion Panel (overlay, hidden by default) -->
+        <Border x:Name="SubtaskCompletionPanel"
+                IsVisible="False"
+                BackgroundColor="#1A1A1A"
+                StrokeThickness="1"
+                Stroke="#4A9EFF"
+                Padding="15"
+                Margin="20"
+                VerticalOptions="Center"
+                HorizontalOptions="Center"
+                WidthRequest="400">
+            <StackLayout Spacing="10">
+                <!-- Panel Title -->
+                <Label Text="Complete Subtask"
+                       TextColor="#4A9EFF"
+                       FontFamily="CascadiaMono"
+                       FontSize="14"
+                       FontAttributes="Bold" />
+
+                <!-- Time Spent Input -->
+                <Label Text="Time spent (optional):"
+                       TextColor="#808080"
+                       FontFamily="CascadiaMono"
+                       FontSize="12" />
+                <Entry x:Name="CompletionTimeInput"
+                       TextColor="#FFFFFF"
+                       BackgroundColor="#2A2A2A"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       Placeholder="e.g., 2h30m"
+                       PlaceholderColor="#606060" />
+
+                <!-- Completion Notes Input -->
+                <Label Text="Notes (optional):"
+                       TextColor="#808080"
+                       FontFamily="CascadiaMono"
+                       FontSize="12" />
+                <Editor x:Name="CompletionNotesInput"
+                        TextColor="#FFFFFF"
+                        BackgroundColor="#2A2A2A"
+                        FontFamily="CascadiaMono"
+                        FontSize="12"
+                        Placeholder="Enter completion notes..."
+                        PlaceholderColor="#606060"
+                        HeightRequest="80"
+                        AutoSize="TextChanges"
+                        MaximumHeightRequest="120" />
+
+                <!-- Action Buttons -->
+                <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
+                    <!-- Cancel Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="0"
+                            HeightRequest="35"
+                            WidthRequest="35">
+                        <Label Text="&#xE14C;"
+                               TextColor="#FF4444"
+                               FontFamily="MaterialIcons"
+                               FontSize="20"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCancelSubtaskCompletion" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+
+                    <!-- Complete Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="0"
+                            HeightRequest="35"
+                            WidthRequest="35">
+                        <Label Text="&#xE876;"
+                               TextColor="#00FF00"
+                               FontFamily="MaterialIcons"
+                               FontSize="20"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnConfirmSubtaskCompletion" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+                </HorizontalStackLayout>
+            </StackLayout>
+        </Border>
+
         <!-- Issue Input Panel (overlay, hidden by default) -->
         <Border x:Name="IssueInputPanel"
                 IsVisible="False"

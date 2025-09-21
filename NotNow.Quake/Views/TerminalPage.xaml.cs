@@ -25,6 +25,8 @@ public partial class TerminalPage : ContentPage
     private List<string> _currentSuggestions = new();
     private bool _showCommandComments = false;  // OFF by default (commands are filtered/hidden)
     private List<Octokit.IssueComment>? _allComments;
+    private string? _pendingSubtaskId;  // Track subtask being completed
+    private string? _pendingSubtaskStatus;  // Track original status for cancellation
 
     public TerminalPage()
     {
@@ -508,24 +510,98 @@ public partial class TerminalPage : ContentPage
         {
             if (_commandExecutor == null || _commandParser == null || _commandPostingService == null) return;
 
-            // Build the appropriate command based on current status
-            string command;
             if (currentStatus == "done")
             {
-                // Reopen the subtask
-                command = $"/notnow reopen {subtaskId}";
+                // Reopen the subtask directly (no form needed)
+                string command = $"/notnow reopen {subtaskId}";
+
+                // Parse command
+                var parseResult = _commandParser.Parse(command, CommandContext.Comment);
+                if (!parseResult.Commands.Any())
+                {
+                    await DisplayAlert("Error", "Failed to parse reopen command", "OK");
+                    return;
+                }
+
+                // Execute command
+                var context = new CommandExecutionContext
+                {
+                    IssueNumber = _selectedIssue.Number,
+                    User = "current-user", // TODO: Get from config
+                    CommandContext = CommandContext.Comment,
+                    RawText = command
+                };
+
+                var result = await _commandExecutor.ExecuteCommandsAsync(parseResult.Commands, context);
+
+                if (result.Success)
+                {
+                    // Post the command with metadata to GitHub
+                    await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+
+                    // Add a small delay to ensure GitHub has processed the command
+                    await Task.Delay(1000);
+
+                    // Reload issue details to show updated subtask
+                    await LoadIssueDetails(_selectedIssue.Number);
+                }
+                else
+                {
+                    await DisplayAlert("Error", $"Failed to reopen subtask: {result.Summary}", "OK");
+                }
             }
             else
             {
-                // Complete the subtask
-                command = $"/notnow complete {subtaskId}";
+                // Show completion form for pending => done
+                _pendingSubtaskId = subtaskId;
+                _pendingSubtaskStatus = currentStatus;
+
+                // Clear and show the completion panel
+                CompletionTimeInput.Text = "";
+                CompletionNotesInput.Text = "";
+                SubtaskCompletionPanel.IsVisible = true;
+                CompletionTimeInput.Focus();
             }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to handle subtask: {ex.Message}", "OK");
+        }
+    }
+
+    private async void OnSubtaskCompletionConfirm(object sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_pendingSubtaskId) || _selectedIssue == null) return;
+
+        try
+        {
+            // Build the complete command with optional time and notes
+            var commandBuilder = new System.Text.StringBuilder();
+            commandBuilder.Append($"/notnow complete {_pendingSubtaskId}");
+
+            // Add time if provided
+            string timeInput = CompletionTimeInput.Text?.Trim();
+            if (!string.IsNullOrWhiteSpace(timeInput))
+            {
+                commandBuilder.Append($" --time {timeInput}");
+            }
+
+            // Add notes if provided
+            string notesInput = CompletionNotesInput.Text?.Trim();
+            if (!string.IsNullOrWhiteSpace(notesInput))
+            {
+                // Escape quotes in notes
+                string escapedNotes = notesInput.Replace("\"", "\\\"");
+                commandBuilder.Append($" --notes \"{escapedNotes}\"");
+            }
+
+            string command = commandBuilder.ToString();
 
             // Parse command
             var parseResult = _commandParser.Parse(command, CommandContext.Comment);
             if (!parseResult.Commands.Any())
             {
-                await DisplayAlert("Error", "Failed to parse subtask toggle command", "OK");
+                await DisplayAlert("Error", "Failed to parse complete command", "OK");
                 return;
             }
 
@@ -545,6 +621,11 @@ public partial class TerminalPage : ContentPage
                 // Post the command with metadata to GitHub
                 await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
 
+                // Hide the completion panel
+                SubtaskCompletionPanel.IsVisible = false;
+                _pendingSubtaskId = null;
+                _pendingSubtaskStatus = null;
+
                 // Add a small delay to ensure GitHub has processed the command
                 await Task.Delay(1000);
 
@@ -553,35 +634,108 @@ public partial class TerminalPage : ContentPage
             }
             else
             {
-                var errorMessage = $"Failed to toggle subtask:\n\n{result.Summary}";
-
-                // Add detailed error information
-                var failedCommands = result.Results.Where(r => !r.Success).ToList();
-                if (failedCommands.Any())
-                {
-                    errorMessage += "\n\nDetails:";
-                    foreach (var failed in failedCommands)
-                    {
-                        if (!string.IsNullOrEmpty(failed.Error))
-                        {
-                            errorMessage += $"\n• {failed.Error}";
-                        }
-                        else if (!string.IsNullOrEmpty(failed.Message))
-                        {
-                            errorMessage += $"\n• {failed.Message}";
-                        }
-                    }
-                }
-
-                // Also include the command that was attempted
-                errorMessage += $"\n\nCommand attempted:\n{command}";
-
-                await DisplayAlert("Error", errorMessage, "OK");
+                await DisplayAlert("Error", $"Failed to complete subtask: {result.Summary}", "OK");
             }
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Error", $"Failed to toggle subtask: {ex.Message}", "OK");
+            await DisplayAlert("Error", $"Failed to complete subtask: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnSubtaskCompletionCancel(object sender, EventArgs e)
+    {
+        // Hide the panel and clear the pending state
+        SubtaskCompletionPanel.IsVisible = false;
+        _pendingSubtaskId = null;
+        _pendingSubtaskStatus = null;
+        
+        // Clear the input fields
+        CompletionTimeInput.Text = "";
+        CompletionNotesInput.Text = "";
+    }
+
+    private void OnCancelSubtaskCompletion(object? sender, EventArgs e)
+    {
+        // Hide the panel and clear pending state
+        SubtaskCompletionPanel.IsVisible = false;
+        _pendingSubtaskId = null;
+        _pendingSubtaskStatus = null;
+        CompletionTimeInput.Text = "";
+        CompletionNotesInput.Text = "";
+    }
+
+    private async void OnConfirmSubtaskCompletion(object? sender, EventArgs e)
+    {
+        if (_selectedIssue == null || string.IsNullOrWhiteSpace(_pendingSubtaskId)) return;
+
+        try
+        {
+            if (_commandExecutor == null || _commandParser == null || _commandPostingService == null) return;
+
+            // Build the complete command with optional parameters
+            var command = $"/notnow complete {_pendingSubtaskId}";
+
+            var time = CompletionTimeInput.Text?.Trim();
+            var notes = CompletionNotesInput.Text?.Trim();
+
+            if (!string.IsNullOrWhiteSpace(time))
+            {
+                command += $" --time {time}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(notes))
+            {
+                // Escape quotes in notes
+                var escapedNotes = notes.Replace("\"", "\\\"");
+                command += $" --notes \"{escapedNotes}\"";
+            }
+
+            // Parse command
+            var parseResult = _commandParser.Parse(command, CommandContext.Comment);
+            if (!parseResult.Commands.Any())
+            {
+                await DisplayAlert("Error", "Failed to parse complete command", "OK");
+                return;
+            }
+
+            // Execute command
+            var context = new CommandExecutionContext
+            {
+                IssueNumber = _selectedIssue.Number,
+                User = "current-user", // TODO: Get from config
+                CommandContext = CommandContext.Comment,
+                RawText = command
+            };
+
+            var result = await _commandExecutor.ExecuteCommandsAsync(parseResult.Commands, context);
+
+            if (result.Success)
+            {
+                // Post the command with metadata to GitHub
+                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+
+                // Hide the panel
+                SubtaskCompletionPanel.IsVisible = false;
+                _pendingSubtaskId = null;
+                _pendingSubtaskStatus = null;
+                CompletionTimeInput.Text = "";
+                CompletionNotesInput.Text = "";
+
+                // Add a small delay to ensure GitHub has processed the command
+                await Task.Delay(1000);
+
+                // Reload issue details to show updated subtask
+                await LoadIssueDetails(_selectedIssue.Number);
+            }
+            else
+            {
+                await DisplayAlert("Error", $"Failed to complete subtask: {result.Summary}", "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to complete subtask: {ex.Message}", "OK");
         }
     }
 

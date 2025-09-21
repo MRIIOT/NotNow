@@ -120,7 +120,10 @@ public class IssueStateParser : IIssueStateParser
                     // Check if completing a specific subtask
                     if (!string.IsNullOrWhiteSpace(args))
                     {
-                        var subtaskId = args.Trim();
+                        // Extract just the subtask ID (first word before any parameters)
+                        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var subtaskId = parts.Length > 0 ? parts[0] : args.Trim();
+                        
                         var subtask = state.Subtasks.FirstOrDefault(s => s.Id == subtaskId);
                         if (subtask != null)
                         {
@@ -145,7 +148,10 @@ public class IssueStateParser : IIssueStateParser
                     // Check if reopening a specific subtask
                     if (!string.IsNullOrWhiteSpace(args))
                     {
-                        var subtaskId = args.Trim();
+                        // Extract just the subtask ID (first word before any parameters)
+                        var parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var subtaskId = parts.Length > 0 ? parts[0] : args.Trim();
+                        
                         var subtask = state.Subtasks.FirstOrDefault(s => s.Id == subtaskId);
                         if (subtask != null)
                         {
