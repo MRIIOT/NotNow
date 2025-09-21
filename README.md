@@ -1,10 +1,10 @@
-# <img src="NotNow.Site/assets/notnow_logo_square.png" width="96" height="96" alt="NotNow Logo" style="vertical-align: middle"> NotNow
+# <img src="docs/assets/notnow_logo_square.png" width="96" height="96" alt="NotNow Logo" style="vertical-align: middle"> NotNow
 
 **A GitHub-integrated task management system that helps you track work directly in your issues.**
 
 NotNow transforms GitHub issues into a powerful task tracking system using special `/notnow` commands in issue comments. Track time, manage subtasks, set priorities, and monitor progress - all without leaving GitHub.
 
-![NotNow in Action](NotNow.Site/assets/notnow.gif)
+![NotNow in Action](docs/assets/notnow.gif)
 
 ## 🎯 Key Features
 
