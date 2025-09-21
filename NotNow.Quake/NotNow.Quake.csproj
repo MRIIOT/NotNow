@@ -13,6 +13,10 @@
 		either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
 		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
 
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+		<SelfContained>true</SelfContained>
+  		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
 		<OutputType>Exe</OutputType>
 		<RootNamespace>NotNow.Quake</RootNamespace>
 		<UseMaui>true</UseMaui>
