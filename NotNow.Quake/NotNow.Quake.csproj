@@ -14,8 +14,11 @@
 		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
 
 		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+		<!-- Single-file publishing is not supported for MAUI Windows apps -->
+		<!-- <PublishSingleFile>true</PublishSingleFile> -->
 		<SelfContained>true</SelfContained>
   		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<PublishReadyToRun>true</PublishReadyToRun>
 
 		<OutputType>Exe</OutputType>
 		<RootNamespace>NotNow.Quake</RootNamespace>

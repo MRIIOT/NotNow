@@ -4,7 +4,11 @@
       "Bash(Select-Object FullName)",
       "Bash(curl:*)",
       "Bash(unzip:*)",
-      "Bash(dotnet build)"
+      "Bash(dotnet build)",
+      "Bash(dotnet publish:*)",
+      "Bash(dir publish)",
+      "Bash(Select-Object -First 20)",
+      "Bash(cmd /c:*)"
     ],
     "deny": [],
     "ask": []
