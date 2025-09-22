@@ -95,12 +95,15 @@ class Program
                         await CreateNewIssue();
                         break;
                     case "6":
-                        await EnterCommandMode();
+                        await ToggleIssueState();
                         break;
                     case "7":
-                        ShowCommandHelp();
+                        await EnterCommandMode();
                         break;
                     case "8":
+                        ShowCommandHelp();
+                        break;
+                    case "9":
                         Console.WriteLine("\nGoodbye!");
                         return;
                     default:
@@ -113,7 +116,7 @@ class Program
                 Console.WriteLine($"\nError: {ex.Message}");
             }
 
-            if (choice != "8")
+            if (choice != "9")
             {
                 Console.WriteLine("\nPress any key to continue...");
                 Console.ReadKey();
@@ -253,9 +256,10 @@ class Program
         Console.WriteLine("3. View Current Issue Comments");
         Console.WriteLine("4. Add Comment to Current Issue");
         Console.WriteLine("5. Create New Issue");
-        Console.WriteLine("6. Enter Command Mode (/notnow)");
-        Console.WriteLine("7. Show Command Help");
-        Console.WriteLine("8. Exit");
+        Console.WriteLine("6. Close/Reopen Current Issue");
+        Console.WriteLine("7. Enter Command Mode (/notnow)");
+        Console.WriteLine("8. Show Command Help");
+        Console.WriteLine("9. Exit");
         Console.Write("\nSelect an option: ");
     }
 
@@ -794,103 +798,210 @@ class Program
 
         var description = string.Join("\n", lines);
 
-        // Ask if this should be a NotNow-tracked issue
-        Console.Write("\nInitialize as NotNow-tracked issue? (y/n): ");
-        var initNotNow = Console.ReadLine()?.Trim().ToLower() == "y";
-
-        var body = description;
-
-        if (initNotNow)
-        {
-            Console.WriteLine("\nNotNow Configuration:");
-
-            Console.Write("Type (bug/feature/task) [task]: ");
-            var type = Console.ReadLine()?.Trim();
-            if (string.IsNullOrEmpty(type)) type = "task";
-
-            Console.Write("Priority (low/medium/high/critical) [medium]: ");
-            var priority = Console.ReadLine()?.Trim();
-            if (string.IsNullOrEmpty(priority)) priority = "medium";
-
-            Console.Write("Assignee (username or press Enter to skip): ");
-            var assignee = Console.ReadLine()?.Trim();
-
-            Console.Write("Estimate (e.g., 8h, 2h30m, or press Enter to skip): ");
-            var estimate = Console.ReadLine()?.Trim();
-
-            Console.Write("Due date (YYYY-MM-DD or press Enter to skip): ");
-            var dueDate = Console.ReadLine()?.Trim();
-
-            Console.Write("Tags (comma-separated, or press Enter to skip): ");
-            var tags = Console.ReadLine()?.Trim();
-
-            // Add subtasks
-            var subtasks = new List<string>();
-            Console.WriteLine("\nAdd subtasks (press Enter with empty title to finish):");
-            int subtaskId = 1;
-            while (true)
-            {
-                Console.Write($"Subtask {subtaskId} title: ");
-                var subtaskTitle = Console.ReadLine()?.Trim();
-                if (string.IsNullOrEmpty(subtaskTitle)) break;
-
-                Console.Write($"  Estimate (optional): ");
-                var subtaskEstimate = Console.ReadLine()?.Trim();
-
-                var subtaskCmd = $"/notnow subtask \"{subtaskTitle}\" --id st{subtaskId}";
-                if (!string.IsNullOrEmpty(subtaskEstimate))
-                    subtaskCmd += $" --estimate {subtaskEstimate}";
-
-                subtasks.Add(subtaskCmd);
-                subtaskId++;
-            }
-
-            // Build the issue body with NotNow initialization
-            body = description;
-            body += "\n\n---\n\n";
-            body += "/notnow init\n";
-            body += $"/notnow type {type}\n";
-            body += $"/notnow priority {priority}\n";
-
-            if (!string.IsNullOrEmpty(assignee))
-            {
-                if (!assignee.StartsWith("@")) assignee = "@" + assignee;
-                body += $"/notnow assignee {assignee}\n";
-            }
-
-            if (!string.IsNullOrEmpty(estimate))
-                body += $"/notnow estimate {estimate}\n";
-
-            if (!string.IsNullOrEmpty(dueDate))
-                body += $"/notnow due {dueDate}\n";
-
-            if (!string.IsNullOrEmpty(tags))
-                body += $"/notnow tags {tags}\n";
-
-            if (subtasks.Any())
-            {
-                body += "\n";
-                foreach (var subtask in subtasks)
-                {
-                    body += subtask + "\n";
-                }
-            }
-        }
-
         Console.WriteLine("\nCreating issue...");
-        var newIssue = await _gitHubService!.CreateIssueAsync(title, body);
+        var newIssue = await _gitHubService!.CreateIssueAsync(title, description);
 
         Console.WriteLine($"\nIssue created successfully!");
         Console.WriteLine($"Issue #{newIssue.Number}: {newIssue.Title}");
         Console.WriteLine($"URL: {newIssue.HtmlUrl}");
 
-        if (initNotNow)
+        // Ask if this should be a NotNow-tracked issue
+        Console.Write("\nInitialize as NotNow-tracked issue? (y/n): ");
+        var initNotNow = Console.ReadLine()?.Trim().ToLower() == "y";
+
+        if (initNotNow && _commandPoster != null)
         {
-            Console.WriteLine("\n✓ NotNow tracking initialized");
-            Console.WriteLine("The issue body contains initialization commands that will be processed when the issue is first accessed.");
+            Console.WriteLine("\nInitializing NotNow tracking...");
+
+            // Post the /notnow init command as the first comment
+            var initCommand = "/notnow init";
+
+            // Create a simple execution result for the init command
+            var executionResult = new ExecutionResult
+            {
+                Results = new List<CommandResult>
+                {
+                    CommandResult.Ok("Issue initialized for NotNow tracking", new { Initialized = true })
+                }
+            };
+
+            // Post the init command to GitHub
+            var posted = await _commandPoster.PostCommandToGitHubAsync(newIssue.Number, initCommand, executionResult);
+
+            if (posted)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("✓ NotNow tracking initialized");
+                Console.ResetColor();
+
+                // Add a small delay to ensure GitHub has processed the command
+                await Task.Delay(1000);
+
+                // Load the issue state
+                try
+                {
+                    var comments = await _gitHubService.GetIssueCommentsAsync(newIssue.Number);
+                    _currentIssueState = _issueStateParser!.ParseIssueState(newIssue, comments);
+                    _issueStateService!.SetState(newIssue.Number, _currentIssueState);
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ Could not load issue state: {ex.Message}");
+                    Console.ResetColor();
+                }
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("✗ Failed to initialize NotNow tracking");
+                Console.ResetColor();
+            }
         }
 
         _currentIssue = newIssue;
         _issues.Insert(0, newIssue);
+    }
+
+    static async Task ToggleIssueState()
+    {
+        Console.Clear();
+        Console.WriteLine("========================================");
+        Console.WriteLine("      Close/Reopen Issue");
+        Console.WriteLine("========================================");
+
+        if (_currentIssue == null)
+        {
+            Console.WriteLine("\nNo issue selected. Please select an issue first.");
+            return;
+        }
+
+        Console.WriteLine($"\nIssue: #{_currentIssue.Number} - {_currentIssue.Title}");
+        Console.WriteLine($"Current State: {_currentIssue.State}");
+
+        if (_currentIssue.State == ItemState.Open)
+        {
+            Console.Write("\nDo you want to close this issue? (y/n): ");
+            var confirm = Console.ReadLine()?.Trim().ToLower() == "y";
+
+            if (confirm)
+            {
+                Console.WriteLine("\nClosing issue...");
+                await _gitHubService!.CloseIssueAsync(_currentIssue.Number);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"✓ Issue #{_currentIssue.Number} has been closed");
+                Console.ResetColor();
+
+                // Add delay to allow GitHub to process the state change
+                await Task.Delay(1000);
+
+                // Refresh the issues list
+                if (_issues.Any())
+                {
+                    _issues = (await _gitHubService.GetIssuesAsync(ItemStateFilter.All)).ToList();
+
+                    // Update the current issue reference
+                    var updatedIssue = _issues.FirstOrDefault(i => i.Number == _currentIssue.Number);
+                    if (updatedIssue != null)
+                    {
+                        _currentIssue = updatedIssue;
+
+                        // Check if the state actually changed, if not retry once
+                        if (_currentIssue.State != ItemState.Closed)
+                        {
+                            Console.WriteLine("Waiting for GitHub to process the state change...");
+                            await Task.Delay(2000);
+                            _issues = (await _gitHubService.GetIssuesAsync(ItemStateFilter.All)).ToList();
+                            updatedIssue = _issues.FirstOrDefault(i => i.Number == _currentIssue.Number);
+                            if (updatedIssue != null)
+                            {
+                                _currentIssue = updatedIssue;
+                            }
+                        }
+                    }
+                }
+
+                // Reload issue state
+                try
+                {
+                    var comments = await _gitHubService.GetIssueCommentsAsync(_currentIssue.Number);
+                    _currentIssueState = _issueStateParser!.ParseIssueState(_currentIssue, comments);
+                    _issueStateService!.SetState(_currentIssue.Number, _currentIssueState);
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ Could not reload issue state: {ex.Message}");
+                    Console.ResetColor();
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nOperation cancelled.");
+            }
+        }
+        else
+        {
+            Console.Write("\nDo you want to reopen this issue? (y/n): ");
+            var confirm = Console.ReadLine()?.Trim().ToLower() == "y";
+
+            if (confirm)
+            {
+                Console.WriteLine("\nReopening issue...");
+                await _gitHubService!.ReopenIssueAsync(_currentIssue.Number);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"✓ Issue #{_currentIssue.Number} has been reopened");
+                Console.ResetColor();
+
+                // Add delay to allow GitHub to process the state change
+                await Task.Delay(1000);
+
+                // Refresh the issues list
+                if (_issues.Any())
+                {
+                    _issues = (await _gitHubService.GetIssuesAsync(ItemStateFilter.All)).ToList();
+
+                    // Update the current issue reference
+                    var updatedIssue = _issues.FirstOrDefault(i => i.Number == _currentIssue.Number);
+                    if (updatedIssue != null)
+                    {
+                        _currentIssue = updatedIssue;
+
+                        // Check if the state actually changed, if not retry once
+                        if (_currentIssue.State != ItemState.Open)
+                        {
+                            Console.WriteLine("Waiting for GitHub to process the state change...");
+                            await Task.Delay(2000);
+                            _issues = (await _gitHubService.GetIssuesAsync(ItemStateFilter.All)).ToList();
+                            updatedIssue = _issues.FirstOrDefault(i => i.Number == _currentIssue.Number);
+                            if (updatedIssue != null)
+                            {
+                                _currentIssue = updatedIssue;
+                            }
+                        }
+                    }
+                }
+
+                // Reload issue state
+                try
+                {
+                    var comments = await _gitHubService.GetIssueCommentsAsync(_currentIssue.Number);
+                    _currentIssueState = _issueStateParser!.ParseIssueState(_currentIssue, comments);
+                    _issueStateService!.SetState(_currentIssue.Number, _currentIssueState);
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"⚠ Could not reload issue state: {ex.Message}");
+                    Console.ResetColor();
+                }
+            }
+            else
+            {
+                Console.WriteLine("\nOperation cancelled.");
+            }
+        }
     }
 }

@@ -1478,40 +1478,12 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // Reopen the issue
                 await _gitHubService.ReopenIssueAsync(issue.Number);
                 issue.IsClosed = false;
-
-                // Post /notnow reopen command
-                if (_commandPostingService != null)
-                {
-                    var reopenCommand = "/notnow reopen";
-                    var executionResult = new ExecutionResult
-                    {
-                        Results = new List<CommandResult>
-                        {
-                            CommandResult.Ok($"Issue #{issue.Number} reopened", new { Reopened = true })
-                        }
-                    };
-                    await _commandPostingService.PostCommandToGitHubAsync(issue.Number, reopenCommand, executionResult);
-                }
             }
             else
             {
                 // Close the issue
                 await _gitHubService.CloseIssueAsync(issue.Number);
                 issue.IsClosed = true;
-
-                // Post /notnow complete command
-                if (_commandPostingService != null)
-                {
-                    var completeCommand = "/notnow complete";
-                    var executionResult = new ExecutionResult
-                    {
-                        Results = new List<CommandResult>
-                        {
-                            CommandResult.Ok($"Issue #{issue.Number} completed", new { Completed = true })
-                        }
-                    };
-                    await _commandPostingService.PostCommandToGitHubAsync(issue.Number, completeCommand, executionResult);
-                }
             }
 
             // Add delay to allow GitHub to process the state change
