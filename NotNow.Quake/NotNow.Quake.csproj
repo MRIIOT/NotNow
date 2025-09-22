@@ -76,6 +76,13 @@
 		</None>
 	</ItemGroup>
 
+	<!-- Only copy Development settings in Debug configuration -->
+	<ItemGroup Condition="'$(Configuration)' == 'Debug'">
+		<None Update="appsettings.Development.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.5" />

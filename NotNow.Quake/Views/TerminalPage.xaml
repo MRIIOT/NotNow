@@ -237,11 +237,14 @@
                                Padding="10"
                                Margin="0,5,0,10"
                                HasShadow="False">
-                            <Label x:Name="IssueDescription"
-                                   TextColor="#E0E0E0"
-                                   FontFamily="CascadiaMono"
-                                   FontSize="13"
-                                   LineBreakMode="WordWrap" />
+                            <Editor x:Name="IssueDescription"
+                                    TextColor="#E0E0E0"
+                                    FontFamily="CascadiaMono"
+                                    FontSize="13"
+                                    IsReadOnly="True"
+                                    BackgroundColor="Transparent"
+                                    VerticalOptions="Start"
+                                    AutoSize="TextChanges" />
                         </Frame>
 
                         <Grid RowSpacing="5" ColumnSpacing="10">

@@ -86,9 +86,16 @@ public static class MauiProgram
 			Console.WriteLine("[MauiProgram] Loading configuration...");
 			try
 			{
-				var config = new ConfigurationBuilder()
-					.AddJsonFile("appsettings.json", optional: true)
-					.Build();
+				var configBuilder = new ConfigurationBuilder()
+					.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
+
+#if DEBUG
+				// In Debug mode, also load Development configuration which will override base settings
+				configBuilder.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false);
+				Console.WriteLine("[MauiProgram] Adding appsettings.Development.json (DEBUG mode)");
+#endif
+
+				var config = configBuilder.Build();
 				builder.Configuration.AddConfiguration(config);
 				Console.WriteLine("[MauiProgram] Configuration loaded");
 			}

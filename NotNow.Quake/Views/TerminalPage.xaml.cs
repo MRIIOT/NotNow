@@ -611,18 +611,21 @@ public partial class TerminalPage : ContentPage, IDisposable
                 Grid.SetRow(authorLabel, 0);
                 commentGrid.Children.Add(authorLabel);
 
-                // Display full comment body without truncation
-                var bodyLabel = new Label
+                // Display full comment body without truncation - using Editor for text selection
+                var bodyEditor = new Editor
                 {
                     Text = comment.Body,
                     TextColor = Color.FromArgb("#E0E0E0"),
                     FontFamily = "CascadiaMono",
                     FontSize = 13,
                     Margin = new Thickness(0, 2),
-                    LineBreakMode = LineBreakMode.WordWrap
+                    IsReadOnly = true,
+                    BackgroundColor = Colors.Transparent,
+                    VerticalOptions = LayoutOptions.Start,
+                    AutoSize = EditorAutoSizeOption.TextChanges
                 };
-                Grid.SetRow(bodyLabel, 1);
-                commentGrid.Children.Add(bodyLabel);
+                Grid.SetRow(bodyEditor, 1);
+                commentGrid.Children.Add(bodyEditor);
 
                 var separator = new BoxView
                 {

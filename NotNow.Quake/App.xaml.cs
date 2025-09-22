@@ -1,4 +1,5 @@
-﻿using NotNow.Quake.Views;
+﻿using Microsoft.Extensions.Configuration;
+using NotNow.Quake.Views;
 
 #if WINDOWS
 using Microsoft.UI.Windowing;
@@ -13,6 +14,8 @@ public partial class App : Application
 {
 	private Window? _mainWindow;
 	private bool _isVisible = true;
+	private double _heightPercentage = 0.6; // Default value
+	private int _animationSpeed = 30; // Default value in milliseconds
 
 	public App()
 	{
@@ -40,7 +43,10 @@ public partial class App : Application
 		{
 			Console.WriteLine("[App] CreateWindow starting...");
 			System.Diagnostics.Debug.WriteLine("[App] CreateWindow starting...");
-			
+
+			// Load window settings from appsettings.json
+			LoadWindowSettings();
+
 			_mainWindow = new Window(new TerminalPage());
 			Console.WriteLine("[App] Main window created with TerminalPage");
 
@@ -78,6 +84,56 @@ public partial class App : Application
 			Console.WriteLine($"[App] CreateWindow error: {ex}");
 			System.Diagnostics.Debug.WriteLine($"[App] CreateWindow error: {ex}");
 			throw;
+		}
+	}
+
+	private void LoadWindowSettings()
+	{
+		try
+		{
+			// Build configuration with environment-specific overrides
+			var basePath = AppDomain.CurrentDomain.BaseDirectory;
+			var configBuilder = new ConfigurationBuilder()
+				.SetBasePath(basePath)
+				.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
+
+			// Add environment-specific configuration
+#if DEBUG
+			configBuilder.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false);
+			Console.WriteLine("[App] Loading configuration with appsettings.Development.json (DEBUG mode)");
+#else
+			Console.WriteLine("[App] Loading configuration from appsettings.json (RELEASE mode)");
+#endif
+
+			var configuration = configBuilder.Build();
+
+			// Load Window settings
+			var windowSection = configuration.GetSection("Window");
+			if (windowSection.Exists())
+			{
+				var heightPercentage = windowSection.GetValue<double?>("HeightPercentage");
+				if (heightPercentage.HasValue)
+				{
+					_heightPercentage = heightPercentage.Value;
+					Console.WriteLine($"[App] Loaded HeightPercentage: {_heightPercentage}");
+				}
+
+				var animationSpeed = windowSection.GetValue<int?>("AnimationSpeed");
+				if (animationSpeed.HasValue)
+				{
+					_animationSpeed = animationSpeed.Value;
+					Console.WriteLine($"[App] Loaded AnimationSpeed: {_animationSpeed}ms");
+				}
+			}
+			else
+			{
+				Console.WriteLine("[App] Window configuration section not found, using default settings");
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[App] Error loading window settings: {ex.Message}");
+			// Continue with default values
 		}
 	}
 
@@ -153,9 +209,9 @@ public partial class App : Application
 		var displayArea = DisplayArea.GetFromWindowId(appWindow.Id, DisplayAreaFallback.Primary);
 		var workAreaWidth = displayArea.WorkArea.Width;
 		var workAreaHeight = displayArea.WorkArea.Height;
-		var targetHeight = (int)(workAreaHeight * 0.6);
-		int animationSteps = 15;
-		int stepDelay = 15; // milliseconds
+		var targetHeight = (int)(workAreaHeight * _heightPercentage);
+		int animationSteps = Math.Max(1, _animationSpeed / 2); // Calculate steps based on speed
+		int stepDelay = Math.Max(1, _animationSpeed / animationSteps); // Calculate delay per step
 
 		if (hide)
 		{
