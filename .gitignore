@@ -9,3 +9,4 @@ NotNow.Console/appsettings.json
 /NotNow.Quake/obj
 NotNow.Quake/appsettings.Development.json
 nul
+NotNow.Console/appsettings.Development.json

@@ -48,6 +48,10 @@ class Program
             .ConfigureAppConfiguration((context, config) =>
             {
                 config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+#if DEBUG
+                // In Debug mode, also load Development configuration which will override base settings
+                config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+#endif
             })
             .ConfigureServices((context, services) =>
             {

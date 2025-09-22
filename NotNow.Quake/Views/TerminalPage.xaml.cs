@@ -1,17 +1,13 @@
-using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 using NotNow.Core.Services;
-using NotNow.Core.Console;
 using NotNow.GitHubService.Models;
 using NotNow.GitHubService.Interfaces;
 using NotNow.GitHubService.Services;
 using System.Collections.ObjectModel;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using NotNow.Core.Commands.Execution;
 using NotNow.Core.Commands.Parser;
 using NotNow.Core.Commands.Framework;
-using NotNow.Core.Commands.Registry;
 using System.Diagnostics;
 
 namespace NotNow.Quake.Views;
@@ -22,19 +18,16 @@ public partial class TerminalPage : ContentPage, IDisposable
     private IGitHubServiceManager? _gitHubServiceManager;
     private IIssueStateService? _stateService;
     private ICommandExecutor? _commandExecutor;
-    private CommandAutoCompleter? _autoCompleter;
     private ICommandParser? _commandParser;
     private ICommandPostingService? _commandPostingService;
     private IIssueStateParser? _issueStateParser;
     private IConfiguration? _configuration;
     private ObservableCollection<IssueItem> _issues;
     private IssueItem? _selectedIssue;
-    private List<string> _currentSuggestions = new();
     private bool _showCommandComments = false;  // OFF by default (commands are filtered/hidden)
     private bool _hideClosedIssues = true;  // ON by default (closed issues are hidden)
     private List<Octokit.IssueComment>? _allComments;
     private string? _pendingSubtaskId;  // Track subtask being completed
-    private string? _pendingSubtaskStatus;  // Track original status for cancellation
     private string? _currentRepositoryId;
     private FileSystemWatcher? _configWatcher;
     private DateTime _lastConfigReload = DateTime.MinValue;
@@ -93,7 +86,6 @@ public partial class TerminalPage : ContentPage, IDisposable
 
                     // Don't load these services yet - they need IGitHubService which requires CurrentRepositoryId to be set
                     // We'll load them after InitializeRepositorySelector sets the current repository
-                    _autoCompleter = serviceProvider.GetService<CommandAutoCompleter>();
                     Console.WriteLine("[TerminalPage] Initial services loaded");
                 }
                 catch (Exception ex)
@@ -468,7 +460,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
 
                 // Add a small delay to ensure GitHub has processed the command
-                await Task.Delay(1000);
+                await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
                 // Reload issue details to show updated tags
                 await LoadIssueDetails(_selectedIssue.Number);
@@ -543,7 +535,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 TagNameInput.Text = "";
 
                 // Add a small delay to ensure GitHub has processed the command
-                await Task.Delay(1000);
+                await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
                 // Reload issue details to show updated tags
                 await LoadIssueDetails(_selectedIssue.Number);
@@ -982,7 +974,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
 
                     // Add a small delay to ensure GitHub has processed the command
-                    await Task.Delay(1000);
+                    await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
                     // Reload issue details to show updated subtask
                     await LoadIssueDetails(_selectedIssue.Number);
@@ -996,7 +988,6 @@ public partial class TerminalPage : ContentPage, IDisposable
             {
                 // Show completion form for pending => done
                 _pendingSubtaskId = subtaskId;
-                _pendingSubtaskStatus = currentStatus;
 
                 // Clear and show the completion panel
                 CompletionTimeInput.Text = "";
@@ -1009,92 +1000,6 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             await DisplayAlert("Error", $"Failed to handle subtask: {ex.Message}", "OK");
         }
-    }
-
-    private async void OnSubtaskCompletionConfirm(object sender, EventArgs e)
-    {
-        if (string.IsNullOrEmpty(_pendingSubtaskId) || _selectedIssue == null) return;
-
-        try
-        {
-            // Build the complete command with optional time and notes
-            var commandBuilder = new System.Text.StringBuilder();
-            commandBuilder.Append($"/notnow complete {_pendingSubtaskId}");
-
-            // Add time if provided
-            string timeInput = CompletionTimeInput.Text?.Trim();
-            if (!string.IsNullOrWhiteSpace(timeInput))
-            {
-                commandBuilder.Append($" --time {timeInput}");
-            }
-
-            // Add notes if provided
-            string notesInput = CompletionNotesInput.Text?.Trim();
-            if (!string.IsNullOrWhiteSpace(notesInput))
-            {
-                // Escape quotes in notes
-                string escapedNotes = notesInput.Replace("\"", "\\\"");
-                commandBuilder.Append($" --notes \"{escapedNotes}\"");
-            }
-
-            string command = commandBuilder.ToString();
-
-            // Parse command
-            var parseResult = _commandParser.Parse(command, CommandContext.Comment);
-            if (!parseResult.Commands.Any())
-            {
-                await DisplayAlert("Error", "Failed to parse complete command", "OK");
-                return;
-            }
-
-            // Execute command
-            var context = new CommandExecutionContext
-            {
-                IssueNumber = _selectedIssue.Number,
-                User = "current-user", // TODO: Get from config
-                CommandContext = CommandContext.Comment,
-                RawText = command
-            };
-
-            var result = await _commandExecutor.ExecuteCommandsAsync(parseResult.Commands, context);
-
-            if (result.Success)
-            {
-                // Post the command with metadata to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
-
-                // Hide the completion panel
-                SubtaskCompletionPanel.IsVisible = false;
-                _pendingSubtaskId = null;
-                _pendingSubtaskStatus = null;
-
-                // Add a small delay to ensure GitHub has processed the command
-                await Task.Delay(1000);
-
-                // Reload issue details to show updated subtask
-                await LoadIssueDetails(_selectedIssue.Number);
-            }
-            else
-            {
-                await DisplayAlert("Error", $"Failed to complete subtask: {result.Summary}", "OK");
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlert("Error", $"Failed to complete subtask: {ex.Message}", "OK");
-        }
-    }
-
-    private void OnSubtaskCompletionCancel(object sender, EventArgs e)
-    {
-        // Hide the panel and clear the pending state
-        SubtaskCompletionPanel.IsVisible = false;
-        _pendingSubtaskId = null;
-        _pendingSubtaskStatus = null;
-        
-        // Clear the input fields
-        CompletionTimeInput.Text = "";
-        CompletionNotesInput.Text = "";
     }
 
     private void OnLogTimeButtonClicked(object sender, EventArgs e)
@@ -1192,7 +1097,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 LogTimePanel.IsVisible = false;
 
                 // Add a small delay to ensure GitHub has processed the command
-                await Task.Delay(1000);
+                await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
                 // Reload issue details to show updated time tracking
                 await LoadIssueDetails(_selectedIssue.Number);
@@ -1229,7 +1134,6 @@ public partial class TerminalPage : ContentPage, IDisposable
         // Hide the panel and clear pending state
         SubtaskCompletionPanel.IsVisible = false;
         _pendingSubtaskId = null;
-        _pendingSubtaskStatus = null;
         CompletionTimeInput.Text = "";
         CompletionNotesInput.Text = "";
     }
@@ -1287,12 +1191,11 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // Hide the panel
                 SubtaskCompletionPanel.IsVisible = false;
                 _pendingSubtaskId = null;
-                _pendingSubtaskStatus = null;
                 CompletionTimeInput.Text = "";
                 CompletionNotesInput.Text = "";
 
                 // Add a small delay to ensure GitHub has processed the command
-                await Task.Delay(1000);
+                await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
                 // Reload issue details to show updated subtask
                 await LoadIssueDetails(_selectedIssue.Number);
@@ -1612,10 +1515,19 @@ public partial class TerminalPage : ContentPage, IDisposable
             }
 
             // Add delay to allow GitHub to process the state change
-            await Task.Delay(1500);
+            await Task.Delay(1000);
 
             // Refresh the issue display to show the new state
             await RefreshIssues();
+
+            // Check if the state actually changed, if not retry once
+            var updatedIssue = _issues.FirstOrDefault(i => i.Number == issue.Number);
+            if (updatedIssue != null && updatedIssue.IsClosed == !issue.IsClosed)
+            {
+                // State didn't change yet, wait and try again
+                await Task.Delay(2000);
+                await RefreshIssues();
+            }
 
             // If this was the selected issue, reload its details
             if (_selectedIssue?.Number == issue.Number)
@@ -1697,7 +1609,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // If the new issue isn't in the list yet, try once more
                 if (!_issues.Any(i => i.Number == newIssue.Number))
                 {
-                    await Task.Delay(1500);
+                    await Task.Delay(2000);
                     await RefreshIssues();
                 }
 

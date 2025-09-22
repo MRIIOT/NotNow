@@ -15,7 +15,12 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="appsettings.Development.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
+
+  <!-- Only copy appsettings.Development.json in Debug builds -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
