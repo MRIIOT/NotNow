@@ -179,13 +179,14 @@ public partial class TerminalPage : ContentPage, IDisposable
                     IsClosed = false
                 };
                 
-                // Try to extract task counts from embedded state
+                // Try to extract task counts and status from embedded state
                 var versionedState = _issueStateParser?.ParseVersionedState(issue);
                 if (versionedState != null)
                 {
                     var taskCounts = versionedState.Data.GetTaskCounts();
                     issueItem.OpenTaskCount = taskCounts.Open;
                     issueItem.TotalTaskCount = taskCounts.Total;
+                    issueItem.Status = versionedState.Data.Status ?? "todo";
                 }
                 
                 _issues.Add(issueItem);
@@ -205,13 +206,14 @@ public partial class TerminalPage : ContentPage, IDisposable
                         IsClosed = true
                     };
                     
-                    // Try to extract task counts from embedded state
+                    // Try to extract task counts and status from embedded state
                     var versionedState = _issueStateParser?.ParseVersionedState(issue);
                     if (versionedState != null)
                     {
                         var taskCounts = versionedState.Data.GetTaskCounts();
                         issueItem.OpenTaskCount = taskCounts.Open;
                         issueItem.TotalTaskCount = taskCounts.Total;
+                        issueItem.Status = versionedState.Data.Status ?? "done";
                     }
                     
                     _issues.Add(issueItem);
@@ -311,7 +313,19 @@ public partial class TerminalPage : ContentPage, IDisposable
                 ? "No description provided"
                 : displayBody;
 
-            StatusLabel.Text = state.Status ?? "todo";
+            // Update status and visual state
+            // If issue is closed, status should be "done"
+            if (issue.State == Octokit.ItemState.Closed)
+            {
+                _currentIssueStatus = "done";
+            }
+            else
+            {
+                _currentIssueStatus = state.Status ?? "todo";
+            }
+            UpdateStatusButtonVisuals(_currentIssueStatus);
+
+            StatusLabel.Text = _currentIssueStatus;
             PriorityLabel.Text = state.Priority ?? "medium";
             AssigneeLabel.Text = issue.Assignee?.Login ?? "unassigned";
             DueLabel.Text = state.DueDate?.ToString("yyyy-MM-dd") ?? "not set";
@@ -1822,6 +1836,111 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
     }
 
+    private string _currentIssueStatus = "todo";
+
+    private async void OnStatusTodoClicked(object sender, EventArgs e)
+    {
+        await SetIssueStatus("todo");
+    }
+
+    private async void OnStatusInProgressClicked(object sender, EventArgs e)
+    {
+        await SetIssueStatus("in_progress");
+    }
+
+    private async void OnStatusBlockedClicked(object sender, EventArgs e)
+    {
+        await SetIssueStatus("blocked");
+    }
+
+    private async Task SetIssueStatus(string status)
+    {
+        if (_selectedIssue == null || _commandPostingService == null)
+            return;
+
+        // Don't allow status changes on closed issues
+        if (_selectedIssue.IsClosed || _currentIssueStatus == "done")
+            return;
+
+        try
+        {
+            // Don't do anything if status is already set
+            if (_currentIssueStatus == status)
+                return;
+
+            var statusCommand = $"/notnow status {status}";
+            var statusResult = new ExecutionResult
+            {
+                Results = new List<CommandResult>
+                {
+                    CommandResult.Ok($"Status set to {status}", new { Status = status })
+                }
+            };
+
+            await PostCommandAndUpdateState(_selectedIssue.Number, statusCommand, statusResult);
+
+            // Update the current status
+            _currentIssueStatus = status;
+            UpdateStatusButtonVisuals(status);
+
+            // Update the issue in the list
+            var issueInList = _issues.FirstOrDefault(i => i.Number == _selectedIssue.Number);
+            if (issueInList != null)
+            {
+                issueInList.Status = status;
+            }
+
+            // Refresh issue details to show the updated state
+            await LoadIssueDetails(_selectedIssue.Number);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to set status: {ex.Message}", "OK");
+        }
+    }
+
+    private void UpdateStatusButtonVisuals(string activeStatus)
+    {
+        // Check if issue is closed (done status)
+        bool isDisabled = activeStatus == "done" || (_selectedIssue?.IsClosed ?? false);
+        
+        // Reset all buttons to default state
+        TodoStatusButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        TodoStatusLabel.TextColor = Color.FromArgb("#4A9EFF");
+        TodoStatusButton.IsEnabled = !isDisabled;
+        TodoStatusLabel.Opacity = isDisabled ? 0.5 : 1.0;
+        
+        InProgressStatusButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        InProgressStatusLabel.TextColor = Color.FromArgb("#4A9EFF");
+        InProgressStatusButton.IsEnabled = !isDisabled;
+        InProgressStatusLabel.Opacity = isDisabled ? 0.5 : 1.0;
+        
+        BlockedStatusButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        BlockedStatusLabel.TextColor = Color.FromArgb("#4A9EFF");
+        BlockedStatusButton.IsEnabled = !isDisabled;
+        BlockedStatusLabel.Opacity = isDisabled ? 0.5 : 1.0;
+
+        // Only highlight the active button if not disabled
+        if (!isDisabled)
+        {
+            switch (activeStatus)
+            {
+                case "todo":
+                    TodoStatusButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    TodoStatusLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+                case "in_progress":
+                    InProgressStatusButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    InProgressStatusLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+                case "blocked":
+                    BlockedStatusButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    BlockedStatusLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+            }
+        }
+    }
+
     private void OnCloseDeveloperMode(object sender, EventArgs e)
     {
         DeveloperModePanel.IsVisible = false;
@@ -2266,12 +2385,39 @@ public partial class TerminalPage : ContentPage, IDisposable
     {
         private int _openTaskCount;
         private int _totalTaskCount;
+        private string _status = "todo";
 
         public int Number { get; set; }
         public string Title { get; set; } = "";
         public string DisplayText { get; set; } = "";
         public bool IsSelected { get; set; }
         public bool IsClosed { get; set; }
+        
+        // Status property with notification
+        public string Status 
+        { 
+            get => _status;
+            set
+            {
+                if (_status != value)
+                {
+                    _status = value;
+                    OnPropertyChanged(nameof(Status));
+                    OnPropertyChanged(nameof(StatusIcon));
+                    OnPropertyChanged(nameof(StatusIconVisible));
+                }
+            }
+        }
+        
+        // Status icon for the issue list - only show for in_progress and blocked
+        public string StatusIcon => Status switch
+        {
+            "in_progress" => "\ue88b",  // In progress icon
+            "blocked" => "\uE14B",      // Blocked icon
+            _ => ""
+        };
+        
+        public bool StatusIconVisible => Status == "in_progress" || Status == "blocked";
         
         // Task count properties with property change notification
         public int OpenTaskCount 

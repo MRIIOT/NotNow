@@ -146,6 +146,13 @@
                                                FontFamily="CascadiaMono"
                                                FontSize="13" />
 
+                                        <!-- Status icon (for in_progress or blocked) -->
+                                        <Label Text="{Binding StatusIcon}"
+                                               TextColor="#FFA500"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="13"
+                                               IsVisible="{Binding StatusIconVisible}" />
+
                                         <!-- Task count in light gray -->
                                         <Label Text="{Binding TaskCountDisplay}"
                                                TextColor="#A0A0A0"
@@ -182,6 +189,81 @@
 
                             <!-- Toolbar -->
                             <HorizontalStackLayout Grid.Column="2" Spacing="5" VerticalOptions="Center">
+                                <!-- Status Toggle Buttons -->
+                                <HorizontalStackLayout Spacing="0">
+                                    <!-- Todo Status Button -->
+                                    <Border x:Name="TodoStatusButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xf037;"
+                                               x:Name="TodoStatusLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set status to Todo">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnStatusTodoClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- In Progress Status Button -->
+                                    <Border x:Name="InProgressStatusButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xe88b;"
+                                               x:Name="InProgressStatusLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set status to In Progress">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnStatusInProgressClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- Blocked Status Button -->
+                                    <Border x:Name="BlockedStatusButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xE14B;"
+                                               x:Name="BlockedStatusLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set status to Blocked">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnStatusBlockedClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+                                </HorizontalStackLayout>
+
                                 <!-- Add Tag button -->
                                 <Border x:Name="AddTagButton"
                                         BackgroundColor="#2A2A2A"
