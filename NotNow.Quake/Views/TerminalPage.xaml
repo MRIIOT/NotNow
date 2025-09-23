@@ -131,13 +131,27 @@
                                         </Label.GestureRecognizers>
                                     </Label>
 
-                                    <!-- Issue text -->
-                                    <Label Grid.Column="2"
-                                           Text="{Binding DisplayText}"
-                                           TextColor="{Binding TextColor}"
-                                           TextDecorations="{Binding TextDecorations}"
-                                           FontFamily="CascadiaMono"
-                                           FontSize="13" />
+                                    <!-- Issue number, text and task count -->
+                                    <HorizontalStackLayout Grid.Column="2" Spacing="5">
+                                        <!-- Issue number in light gray -->
+                                        <Label Text="{Binding IssueNumberDisplay}"
+                                               TextColor="#A0A0A0"
+                                               FontFamily="CascadiaMono"
+                                               FontSize="13" />
+
+                                        <!-- Issue title -->
+                                        <Label Text="{Binding TitleDisplay}"
+                                               TextColor="{Binding TextColor}"
+                                               TextDecorations="{Binding TextDecorations}"
+                                               FontFamily="CascadiaMono"
+                                               FontSize="13" />
+
+                                        <!-- Task count in light gray -->
+                                        <Label Text="{Binding TaskCountDisplay}"
+                                               TextColor="#A0A0A0"
+                                               FontFamily="CascadiaMono"
+                                               FontSize="13" />
+                                    </HorizontalStackLayout>
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>

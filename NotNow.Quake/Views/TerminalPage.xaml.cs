@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls.Shapes;
 using NotNow.Core.Services;
+using NotNow.Core.Models;
 using NotNow.GitHubService.Models;
 using NotNow.GitHubService.Interfaces;
 using NotNow.GitHubService.Services;
@@ -9,6 +10,7 @@ using NotNow.Core.Commands.Execution;
 using NotNow.Core.Commands.Parser;
 using NotNow.Core.Commands.Framework;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace NotNow.Quake.Views;
 
@@ -21,6 +23,7 @@ public partial class TerminalPage : ContentPage, IDisposable
     private ICommandParser? _commandParser;
     private ICommandPostingService? _commandPostingService;
     private IIssueStateParser? _issueStateParser;
+    private IIssueStateManager? _stateManager;
     private IConfiguration? _configuration;
     private ObservableCollection<IssueItem> _issues;
     private IssueItem? _selectedIssue;
@@ -168,13 +171,24 @@ public partial class TerminalPage : ContentPage, IDisposable
             var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
             foreach (var issue in openIssues.Take(15))
             {
-                _issues.Add(new IssueItem
+                var issueItem = new IssueItem
                 {
                     Number = issue.Number,
                     Title = issue.Title,
                     DisplayText = $"#{issue.Number} {(issue.Title.Length > 45 ? issue.Title.Substring(0, 45) + "..." : issue.Title)}",
                     IsClosed = false
-                });
+                };
+                
+                // Try to extract task counts from embedded state
+                var versionedState = _issueStateParser?.ParseVersionedState(issue);
+                if (versionedState != null)
+                {
+                    var taskCounts = versionedState.Data.GetTaskCounts();
+                    issueItem.OpenTaskCount = taskCounts.Open;
+                    issueItem.TotalTaskCount = taskCounts.Total;
+                }
+                
+                _issues.Add(issueItem);
             }
 
             // Only fetch and add closed issues if filter is OFF
@@ -183,13 +197,24 @@ public partial class TerminalPage : ContentPage, IDisposable
                 var closedIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Closed);
                 foreach (var issue in closedIssues.Take(10))
                 {
-                    _issues.Add(new IssueItem
+                    var issueItem = new IssueItem
                     {
                         Number = issue.Number,
                         Title = issue.Title,
                         DisplayText = $"#{issue.Number} {(issue.Title.Length > 45 ? issue.Title.Substring(0, 45) + "..." : issue.Title)}",
                         IsClosed = true
-                    });
+                    };
+                    
+                    // Try to extract task counts from embedded state
+                    var versionedState = _issueStateParser?.ParseVersionedState(issue);
+                    if (versionedState != null)
+                    {
+                        var taskCounts = versionedState.Data.GetTaskCounts();
+                        issueItem.OpenTaskCount = taskCounts.Open;
+                        issueItem.TotalTaskCount = taskCounts.Total;
+                    }
+                    
+                    _issues.Add(issueItem);
                 }
             }
 
@@ -219,36 +244,45 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             if (_gitHubService == null || _stateService == null || _issueStateParser == null) return;
 
-            // Try to find the issue in open issues first
-            var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
-            var issue = openIssues.FirstOrDefault(i => i.Number == issueNumber);
-
-            // If not found in open issues, check closed issues
-            if (issue == null)
-            {
-                var closedIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Closed);
-                issue = closedIssues.FirstOrDefault(i => i.Number == issueNumber);
-            }
-
+            // Get the specific issue
+            var issue = await _gitHubService.GetIssueAsync(issueNumber);
             if (issue == null) return;
 
-            // Load comments first to parse state
-            var comments = await _gitHubService.GetIssueCommentsAsync(issueNumber);
-
-            // Debug: Log all comments to see what we're parsing
-            System.Diagnostics.Debug.WriteLine($"Issue #{issue.Number}: Body = {issue.Body ?? "(empty)"}");
-            System.Diagnostics.Debug.WriteLine($"Issue #{issue.Number}: Found {comments.Count()} comments");
-            foreach (var comment in comments)
+            IssueState state;
+            
+            // First, try to get state from embedded version in issue body
+            var versionedState = _issueStateParser.ParseVersionedState(issue);
+            if (versionedState != null && !_stateManager.IsStateStale(versionedState, TimeSpan.FromMinutes(5)))
             {
-                System.Diagnostics.Debug.WriteLine($"  Comment by {comment.User.Login}: {comment.Body?.Substring(0, Math.Min(100, comment.Body?.Length ?? 0))}...");
-                if (comment.Body?.Contains("/notnow", StringComparison.OrdinalIgnoreCase) == true)
-                {
-                    System.Diagnostics.Debug.WriteLine($"    ^ Contains /notnow command!");
-                }
+                // Use the versioned state - no need to fetch comments!
+                state = ConvertVersionedToState(versionedState.Data);
+                System.Diagnostics.Debug.WriteLine($"Issue #{issue.Number}: Using embedded state (v{versionedState.StateVersion})");
             }
+            else
+            {
+                // Fallback: Parse from comments (for issues without embedded state or stale state)
+                System.Diagnostics.Debug.WriteLine($"Issue #{issue.Number}: Parsing state from comments (embedded state {(versionedState == null ? "not found" : "is stale")})");
+                
+                var comments = await _gitHubService.GetIssueCommentsAsync(issueNumber);
+                
+                // Debug: Log all comments to see what we're parsing
+                System.Diagnostics.Debug.WriteLine($"Issue #{issue.Number}: Body = {issue.Body ?? "(empty)"}");
+                System.Diagnostics.Debug.WriteLine($"Issue #{issue.Number}: Found {comments.Count()} comments");
+                foreach (var comment in comments)
+                {
+                    System.Diagnostics.Debug.WriteLine($"  Comment by {comment.User.Login}: {comment.Body?.Substring(0, Math.Min(100, comment.Body?.Length ?? 0))}...");
+                    if (comment.Body?.Contains("/notnow", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"    ^ Contains /notnow command!");
+                    }
+                }
 
-            // Parse state from issue body and comments
-            var state = _issueStateParser.ParseIssueState(issue, comments);
+                // Parse state from issue body and comments
+                state = _issueStateParser.ParseIssueState(issue, comments);
+                
+                // Store comments for display later
+                _allComments = comments.ToList();
+            }
 
             // Update the state service with the parsed state from GitHub
             // This ensures command handlers have access to the current state
@@ -264,10 +298,18 @@ public partial class TerminalPage : ContentPage, IDisposable
             // Update issue details
             IssueTitle.Text = $"#{issue.Number}: {issue.Title}";
 
-            // Display issue body/description
-            IssueDescription.Text = string.IsNullOrWhiteSpace(issue.Body)
+            // Display issue body/description (removing embedded state markers)
+            var displayBody = issue.Body;
+            if (!string.IsNullOrWhiteSpace(displayBody))
+            {
+                // Remove the embedded state section from display
+                var statePattern = $@"{Regex.Escape(IssueStateVersion.StateBeginMarker)}.*?{Regex.Escape(IssueStateVersion.StateEndMarker)}";
+                displayBody = Regex.Replace(displayBody, statePattern, "", RegexOptions.Singleline).Trim();
+            }
+            
+            IssueDescription.Text = string.IsNullOrWhiteSpace(displayBody)
                 ? "No description provided"
-                : issue.Body;
+                : displayBody;
 
             StatusLabel.Text = state.Status ?? "todo";
             PriorityLabel.Text = state.Priority ?? "medium";
@@ -349,8 +391,11 @@ public partial class TerminalPage : ContentPage, IDisposable
             }
 
 
-            // Display comments (already loaded above for state parsing)
-            _allComments = comments.ToList();
+            // Display comments - only fetch if not already loaded
+            if (_allComments == null || !_allComments.Any())
+            {
+                _allComments = (await _gitHubService.GetIssueCommentsAsync(issueNumber)).ToList();
+            }
             DisplayComments();
         }
         catch (Exception ex)
@@ -457,7 +502,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                 // Add a small delay to ensure GitHub has processed the command
                 await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
@@ -528,7 +573,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                 // Hide the input panel
                 TagInputPanel.IsVisible = false;
@@ -971,7 +1016,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 if (result.Success)
                 {
                     // Post the command with metadata to GitHub
-                    await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                    await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                     // Add a small delay to ensure GitHub has processed the command
                     await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
@@ -1091,7 +1136,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command with metadata to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                 // Hide the form
                 LogTimePanel.IsVisible = false;
@@ -1186,7 +1231,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command with metadata to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                 // Hide the panel
                 SubtaskCompletionPanel.IsVisible = false;
@@ -1304,7 +1349,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command with metadata to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                 // Clear inputs
                 SubtaskTitleInput.Text = "";
@@ -1442,7 +1487,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command with metadata to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
                 // Clear inputs
                 NoteTitleInput.Text = "";
@@ -1478,12 +1523,42 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // Reopen the issue
                 await _gitHubService.ReopenIssueAsync(issue.Number);
                 issue.IsClosed = false;
+
+                // Post the /notnow status todo command when reopening
+                if (_commandPostingService != null)
+                {
+                    var statusCommand = "/notnow status todo";
+                    var statusResult = new ExecutionResult
+                    {
+                        Results = new List<CommandResult>
+                        {
+                            CommandResult.Ok("Status set to todo", new { Status = "todo" })
+                        }
+                    };
+
+                    await PostCommandAndUpdateState(issue.Number, statusCommand, statusResult);
+                }
             }
             else
             {
                 // Close the issue
                 await _gitHubService.CloseIssueAsync(issue.Number);
                 issue.IsClosed = true;
+
+                // Post the /notnow status done command when closing
+                if (_commandPostingService != null)
+                {
+                    var statusCommand = "/notnow status done";
+                    var statusResult = new ExecutionResult
+                    {
+                        Results = new List<CommandResult>
+                        {
+                            CommandResult.Ok("Status set to done", new { Status = "done" })
+                        }
+                    };
+
+                    await PostCommandAndUpdateState(issue.Number, statusCommand, statusResult);
+                }
             }
 
             // Add delay to allow GitHub to process the state change
@@ -1565,8 +1640,20 @@ public partial class TerminalPage : ContentPage, IDisposable
                     }
                 };
 
-                // Post the init command to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(newIssue.Number, initCommand, executionResult);
+                // Post the init command to GitHub and update embedded state
+                await PostCommandAndUpdateState(newIssue.Number, initCommand, executionResult);
+
+                // Post the /notnow status todo command to set initial status
+                var statusCommand = "/notnow status todo";
+                var statusResult = new ExecutionResult
+                {
+                    Results = new List<CommandResult>
+                    {
+                        CommandResult.Ok("Status set to todo", new { Status = "todo" })
+                    }
+                };
+
+                await PostCommandAndUpdateState(newIssue.Number, statusCommand, statusResult);
 
                 // Clear inputs
                 IssueTitleInput.Text = "";
@@ -1666,7 +1753,10 @@ public partial class TerminalPage : ContentPage, IDisposable
             if (result.Success)
             {
                 // Post the command with metadata to GitHub
-                await _commandPostingService.PostCommandToGitHubAsync(_selectedIssue.Number, command, result);
+                await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
+
+                // Update embedded state in issue body
+                await UpdateEmbeddedStateAfterCommand(_selectedIssue.Number, command);
 
                 // Clear inputs
                 CommentBodyInput.Text = "";
@@ -1773,6 +1863,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             _commandPostingService = scopedProvider.GetService<ICommandPostingService>();
             _commandExecutor = scopedProvider.GetService<ICommandExecutor>();
             _issueStateParser = scopedProvider.GetService<IIssueStateParser>();
+            _stateManager = scopedProvider.GetService<IIssueStateManager>() ?? new IssueStateManager();
             Console.WriteLine("[TerminalPage] Repository-specific services loaded");
         }
 
@@ -1820,6 +1911,7 @@ public partial class TerminalPage : ContentPage, IDisposable
             _commandPostingService = scopedProvider.GetService<ICommandPostingService>();
             _commandExecutor = scopedProvider.GetService<ICommandExecutor>();
             _issueStateParser = scopedProvider.GetService<IIssueStateParser>();
+            _stateManager = scopedProvider.GetService<IIssueStateManager>() ?? new IssueStateManager();
         }
 
         // Clear current state
@@ -1997,6 +2089,156 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
     }
 
+    private NotNow.Core.Models.IssueState ConvertVersionedToState(IssueStateData data)
+    {
+        return new NotNow.Core.Models.IssueState
+        {
+            IssueNumber = data.IssueNumber,
+            Title = data.Title,
+            Status = data.Status,
+            Priority = data.Priority,
+            Type = data.Type,
+            Assignee = data.Assignee,
+            Estimate = data.Estimate,
+            DueDate = data.DueDate,
+            Tags = new List<string>(data.Tags),
+            Subtasks = new List<Subtask>(data.Subtasks),
+            Sessions = new List<WorkSession>(data.Sessions),
+            TotalTimeSpent = data.TotalTimeSpent,
+            LastUpdated = DateTime.UtcNow,
+            IsInitialized = data.IsInitialized,
+            ActiveSession = null
+        };
+    }
+
+    private async Task UpdateEmbeddedStateAfterCommand(int issueNumber, string command)
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine($"UpdateEmbeddedStateAfterCommand starting for issue #{issueNumber}, command: {command}");
+
+            if (_gitHubService == null)
+            {
+                System.Diagnostics.Debug.WriteLine("UpdateEmbeddedStateAfterCommand: _gitHubService is null");
+                return;
+            }
+            if (_issueStateParser == null)
+            {
+                System.Diagnostics.Debug.WriteLine("UpdateEmbeddedStateAfterCommand: _issueStateParser is null");
+                return;
+            }
+            if (_stateManager == null)
+            {
+                System.Diagnostics.Debug.WriteLine("UpdateEmbeddedStateAfterCommand: _stateManager is null");
+                return;
+            }
+
+            // Get the current issue
+            var issue = await _gitHubService.GetIssueAsync(issueNumber);
+            if (issue == null) return;
+
+            // Get current state (from embedded or parse from comments)
+            NotNow.Core.Models.IssueState currentState;
+            var versionedState = _issueStateParser.ParseVersionedState(issue);
+            
+            if (versionedState != null)
+            {
+                // Use existing versioned state
+                currentState = ConvertVersionedToState(versionedState.Data);
+            }
+            else
+            {
+                // Parse from comments for the first time
+                var comments = await _gitHubService.GetIssueCommentsAsync(issueNumber);
+                currentState = _issueStateParser.ParseIssueState(issue, comments);
+            }
+
+            // Apply the new command to get updated state
+            var newState = _issueStateParser.ParseCommandIntoState(currentState, command, DateTime.UtcNow);
+
+            // Create or update versioned state
+            IssueStateVersion newVersionedState;
+            var clientId = Environment.MachineName; // Or get from config
+            
+            if (versionedState != null)
+            {
+                newVersionedState = _stateManager.IncrementVersion(versionedState, newState, command, clientId);
+            }
+            else
+            {
+                newVersionedState = _stateManager.CreateNewVersion(newState, command, clientId);
+            }
+
+            // Update issue body with embedded state
+            var updatedBody = _stateManager.EmbedStateInBody(issue.Body, newVersionedState);
+            System.Diagnostics.Debug.WriteLine($"UpdateEmbeddedStateAfterCommand: Generated updated body (length: {updatedBody?.Length})");
+
+            // Update the issue on GitHub
+            await _gitHubService.UpdateIssueAsync(issueNumber, body: updatedBody);
+
+            System.Diagnostics.Debug.WriteLine($"UpdateEmbeddedStateAfterCommand: Successfully updated embedded state for issue #{issueNumber} to version {newVersionedState.StateVersion}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to update embedded state: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Full exception: {ex}");
+            Console.WriteLine($"[UpdateEmbeddedState] ERROR: {ex.Message}");
+            // Don't throw - this is a best-effort optimization
+        }
+    }
+
+    private async Task PostCommandAndUpdateState(int issueNumber, string command, ExecutionResult result)
+    {
+        // Post the command with metadata to GitHub
+        await _commandPostingService.PostCommandToGitHubAsync(issueNumber, command, result);
+        
+        // Update embedded state in issue body if command was successful
+        if (result.Success)
+        {
+            await UpdateEmbeddedStateAfterCommand(issueNumber, command);
+            
+            // Refresh the issues list to show updated task counts
+            // Check if the command affects task counts
+            if (command.Contains("subtask") || command.Contains("complete") || command.Contains("reopen"))
+            {
+                await RefreshIssueInList(issueNumber);
+            }
+        }
+    }
+
+    private async Task RefreshIssueInList(int issueNumber)
+    {
+        try
+        {
+            if (_gitHubService == null || _issueStateParser == null) return;
+
+            // Find the issue in the list
+            var issueItem = _issues.FirstOrDefault(i => i.Number == issueNumber);
+            if (issueItem == null) return;
+
+            // Get the updated issue from GitHub
+            var issue = await _gitHubService.GetIssueAsync(issueNumber);
+            if (issue == null) return;
+
+            // Try to extract task counts from embedded state
+            var versionedState = _issueStateParser.ParseVersionedState(issue);
+            if (versionedState != null)
+            {
+                var taskCounts = versionedState.Data.GetTaskCounts();
+                
+                // Update the task counts - INotifyPropertyChanged will trigger UI update
+                issueItem.OpenTaskCount = taskCounts.Open;
+                issueItem.TotalTaskCount = taskCounts.Total;
+                
+                System.Diagnostics.Debug.WriteLine($"RefreshIssueInList: Updated issue #{issueNumber} task counts to [{taskCounts.Open}/{taskCounts.Total}]");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"RefreshIssueInList: Failed to refresh issue #{issueNumber}: {ex.Message}");
+        }
+    }
+
     private void ClearIssueDetails()
     {
         IssueTitle.Text = "";
@@ -2020,16 +2262,66 @@ public partial class TerminalPage : ContentPage, IDisposable
         public string? DefaultRepositoryId { get; set; }
     }
 
-    public class IssueItem
+    public class IssueItem : System.ComponentModel.INotifyPropertyChanged
     {
+        private int _openTaskCount;
+        private int _totalTaskCount;
+
         public int Number { get; set; }
         public string Title { get; set; } = "";
         public string DisplayText { get; set; } = "";
         public bool IsSelected { get; set; }
         public bool IsClosed { get; set; }
+        
+        // Task count properties with property change notification
+        public int OpenTaskCount 
+        { 
+            get => _openTaskCount;
+            set
+            {
+                if (_openTaskCount != value)
+                {
+                    _openTaskCount = value;
+                    OnPropertyChanged(nameof(OpenTaskCount));
+                    OnPropertyChanged(nameof(TaskCountDisplay));
+                    OnPropertyChanged(nameof(FullDisplayText));
+                }
+            }
+        }
+        
+        public int TotalTaskCount 
+        { 
+            get => _totalTaskCount;
+            set
+            {
+                if (_totalTaskCount != value)
+                {
+                    _totalTaskCount = value;
+                    OnPropertyChanged(nameof(TotalTaskCount));
+                    OnPropertyChanged(nameof(TaskCountDisplay));
+                    OnPropertyChanged(nameof(FullDisplayText));
+                }
+            }
+        }
+        
+        public string TaskCountDisplay => TotalTaskCount > 0 ? $" [{OpenTaskCount}/{TotalTaskCount}]" : "";
+
+        // Display properties
+        public string IssueNumberDisplay => $"#{Number}";
+        public string TitleDisplay => Title.Length > 45 ? Title.Substring(0, 45) + "..." : Title;
         public string CheckboxText => IsClosed ? "☑" : "☐";
         public Color TextColor => IsClosed ? Color.FromArgb("#808080") : Color.FromArgb("#E0E0E0");
         public TextDecorations TextDecorations => IsClosed ? TextDecorations.Strikethrough : TextDecorations.None;
+        
+        // Combined display with task count
+        public string FullDisplayText => DisplayText + TaskCountDisplay;
+        
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        
+        protected virtual void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+        }
     }
 
     public void Dispose()

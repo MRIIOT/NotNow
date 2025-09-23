@@ -10,7 +10,19 @@
       "Bash(Select-Object -First 20)",
       "Bash(cmd /c:*)",
       "Bash(dotnet build:*)",
-      "Bash(dotnet clean:*)"
+      "Bash(dotnet clean:*)",
+      "mcp__codex__codex",
+      "Bash(codex:*)",
+      "mcp__serena__list_dir",
+      "mcp__serena__activate_project",
+      "mcp__serena__find_file",
+      "mcp__serena__search_for_pattern",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol",
+      "mcp__serena__think_about_collected_information",
+      "mcp__serena__replace_symbol_body",
+      "mcp__serena__insert_after_symbol",
+      "mcp__serena__insert_before_symbol"
     ],
     "deny": [],
     "ask": []

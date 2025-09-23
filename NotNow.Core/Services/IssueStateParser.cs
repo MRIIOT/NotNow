@@ -11,6 +11,8 @@ namespace NotNow.Core.Services;
 public interface IIssueStateParser
 {
     IssueState ParseIssueState(Issue issue, IReadOnlyList<IssueComment> comments);
+    IssueStateVersion? ParseVersionedState(Issue issue);
+    IssueState ParseCommandIntoState(IssueState currentState, string command, DateTime timestamp);
 }
 
 public class IssueStateParser : IIssueStateParser
@@ -18,6 +20,17 @@ public class IssueStateParser : IIssueStateParser
     // Match /notnow commands - stop at newline or next /notnow
     private static readonly Regex CommandRegex = new(@"/notnow\s+(\w+)(?:\s+([^\r\n]+?))?(?=\r?\n|/notnow|$)", RegexOptions.Multiline | RegexOptions.IgnoreCase);
     private static readonly Regex TimeSpanRegex = new(@"(\d+)([hHmM])");
+    private readonly IIssueStateManager _stateManager;
+
+    public IssueStateParser()
+    {
+        _stateManager = new IssueStateManager();
+    }
+
+    public IssueStateParser(IIssueStateManager stateManager)
+    {
+        _stateManager = stateManager;
+    }
 
     public IssueState ParseIssueState(Issue issue, IReadOnlyList<IssueComment> comments)
     {
@@ -44,6 +57,71 @@ public class IssueStateParser : IIssueStateParser
             state.Sessions.Sum(s => s.Duration.TotalSeconds));
 
         return state;
+    }
+
+    public IssueStateVersion? ParseVersionedState(Issue issue)
+    {
+        return _stateManager.ExtractStateFromBody(issue.Body);
+    }
+
+    public IssueState ParseCommandIntoState(IssueState currentState, string command, DateTime timestamp)
+    {
+        var state = CloneState(currentState);
+        ParseCommands(command, state, timestamp);
+
+        // Recalculate total time spent
+        state.TotalTimeSpent = TimeSpan.FromSeconds(
+            state.Sessions.Sum(s => s.Duration.TotalSeconds));
+
+        return state;
+    }
+
+    private IssueState CloneState(IssueState original)
+    {
+        return new IssueState
+        {
+            IssueNumber = original.IssueNumber,
+            Title = original.Title,
+            Status = original.Status,
+            Priority = original.Priority,
+            Type = original.Type,
+            Assignee = original.Assignee,
+            Estimate = original.Estimate,
+            DueDate = original.DueDate,
+            Tags = new List<string>(original.Tags),
+            Subtasks = original.Subtasks.Select(CloneSubtask).ToList(),
+            Sessions = original.Sessions.Select(CloneSession).ToList(),
+            TotalTimeSpent = original.TotalTimeSpent,
+            LastUpdated = original.LastUpdated,
+            IsInitialized = original.IsInitialized,
+            ActiveSession = original.ActiveSession != null ? CloneSession(original.ActiveSession) : null
+        };
+    }
+
+    private Subtask CloneSubtask(Subtask original)
+    {
+        return new Subtask
+        {
+            Id = original.Id,
+            Title = original.Title,
+            Status = original.Status,
+            Estimate = original.Estimate,
+            Assignee = original.Assignee,
+            CompletedAt = original.CompletedAt
+        };
+    }
+
+    private WorkSession CloneSession(WorkSession original)
+    {
+        return new WorkSession
+        {
+            Id = original.Id,
+            StartedAt = original.StartedAt,
+            EndedAt = original.EndedAt,
+            Duration = original.Duration,
+            Description = original.Description,
+            User = original.User
+        };
     }
 
     private void ParseCommands(string text, IssueState state, DateTime timestamp)

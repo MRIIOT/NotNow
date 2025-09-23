@@ -10,4 +10,6 @@ public interface IGitHubService
     Task<IssueComment> AddCommentToIssueAsync(int issueNumber, string comment);
     Task<Issue> CloseIssueAsync(int issueNumber);
     Task<Issue> ReopenIssueAsync(int issueNumber);
+    Task<Issue> UpdateIssueAsync(int issueNumber, string? title = null, string? body = null, ItemState? state = null);
+    Task<Issue> GetIssueAsync(int issueNumber);
 }

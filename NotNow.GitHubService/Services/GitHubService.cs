@@ -169,4 +169,50 @@ public class GitHubService : IGitHubService
             throw new Exception($"Error reopening issue #{issueNumber}: {ex.Message}", ex);
         }
     }
+
+    public async Task<Issue> UpdateIssueAsync(int issueNumber, string? title = null, string? body = null, ItemState? state = null)
+    {
+        try
+        {
+            var issueUpdate = new IssueUpdate();
+
+            if (!string.IsNullOrEmpty(title))
+                issueUpdate.Title = title;
+
+            if (body != null) // Allow empty body
+                issueUpdate.Body = body;
+
+            if (state.HasValue)
+                issueUpdate.State = state.Value;
+
+            var issue = await _client.Issue.Update(
+                _settings.Owner,
+                _settings.Repository,
+                issueNumber,
+                issueUpdate);
+
+            return issue;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error updating issue #{issueNumber}: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<Issue> GetIssueAsync(int issueNumber)
+    {
+        try
+        {
+            var issue = await _client.Issue.Get(
+                _settings.Owner,
+                _settings.Repository,
+                issueNumber);
+
+            return issue;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error retrieving issue #{issueNumber}: {ex.Message}", ex);
+        }
+    }
 }
