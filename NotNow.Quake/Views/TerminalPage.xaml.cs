@@ -26,6 +26,9 @@ public partial class TerminalPage : ContentPage, IDisposable
     private IIssueStateManager? _stateManager;
     private IConfiguration? _configuration;
     private ObservableCollection<IssueItem> _issues;
+    private ObservableCollection<IssueItem> _filteredIssues;
+    private List<IssueItem> _allIssues = new List<IssueItem>();
+    private string _filterText = string.Empty;
     private IssueItem? _selectedIssue;
     private bool _showCommandComments = false;  // OFF by default (commands are filtered/hidden)
     private bool _hideClosedIssues = true;  // ON by default (closed issues are hidden)
@@ -48,7 +51,11 @@ public partial class TerminalPage : ContentPage, IDisposable
             Console.WriteLine("[TerminalPage] InitializeComponent completed");
 
             _issues = new ObservableCollection<IssueItem>();
-            IssuesListView.ItemsSource = _issues;
+            _filteredIssues = new ObservableCollection<IssueItem>();
+            _allIssues = new List<IssueItem>();
+            
+            // Bind the filtered issues to the view
+            IssuesListView.ItemsSource = _filteredIssues;
             IssuesListView.SelectionChanged += OnIssueSelectionChanged;
             Console.WriteLine("[TerminalPage] ListView configured");
 
@@ -168,6 +175,8 @@ public partial class TerminalPage : ContentPage, IDisposable
 
             ShowLoadingIndicator();
             _issues.Clear();
+            _allIssues.Clear();
+            _filteredIssues.Clear();
 
             // Always fetch and add open issues (limit to 15)
             var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
@@ -181,7 +190,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     IsClosed = false
                 };
                 
-                // Try to extract task counts, status, priority, and due date from embedded state
+                // Try to extract task counts, status, priority, due date, and tags from embedded state
                 var versionedState = _issueStateParser?.ParseVersionedState(issue);
                 if (versionedState != null)
                 {
@@ -191,6 +200,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     issueItem.Status = versionedState.Data.Status ?? "todo";
                     issueItem.Priority = versionedState.Data.Priority ?? "medium";
                     issueItem.DueDate = versionedState.Data.DueDate;
+                    issueItem.Tags = versionedState.Data.Tags ?? new List<string>();
                 }
                 
                 // Apply priority filters (only for open issues)
@@ -206,6 +216,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 if (shouldInclude)
                 {
                     _issues.Add(issueItem);
+                    _allIssues.Add(issueItem);
                 }
             }
 
@@ -223,7 +234,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                         IsClosed = true
                     };
                     
-                    // Try to extract task counts, status, priority, and due date from embedded state
+                    // Try to extract task counts, status, priority, due date, and tags from embedded state
                     var versionedState = _issueStateParser?.ParseVersionedState(issue);
                     if (versionedState != null)
                     {
@@ -233,16 +244,21 @@ public partial class TerminalPage : ContentPage, IDisposable
                         issueItem.Status = versionedState.Data.Status ?? "done";
                         issueItem.Priority = versionedState.Data.Priority ?? "medium";
                         issueItem.DueDate = versionedState.Data.DueDate;
+                        issueItem.Tags = versionedState.Data.Tags ?? new List<string>();
                     }
                     
                     // Closed issues are not filtered by priority
                     _issues.Add(issueItem);
+                    _allIssues.Add(issueItem);
                 }
             }
 
-            if (_issues.Any())
+            // Apply text filter
+            ApplyFilter();
+
+            if (_filteredIssues.Any())
             {
-                IssuesListView.SelectedItem = _issues.First();
+                IssuesListView.SelectedItem = _filteredIssues.First();
             }
         }
         catch (Exception ex)
@@ -2083,9 +2099,6 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // Post the command with metadata to GitHub
                 await PostCommandAndUpdateState(_selectedIssue.Number, command, result);
 
-                // Update embedded state in issue body
-                await UpdateEmbeddedStateAfterCommand(_selectedIssue.Number, command);
-
                 // Clear inputs
                 CommentBodyInput.Text = "";
                 MarkdownCheckbox.IsChecked = false;
@@ -2963,6 +2976,47 @@ public partial class TerminalPage : ContentPage, IDisposable
         public string? DefaultRepositoryId { get; set; }
     }
 
+    private void ApplyFilter()
+    {
+        _filteredIssues.Clear();
+
+        foreach (var issue in _allIssues)
+        {
+            bool matchesFilter = true;
+
+            // Apply text filter if present
+            if (!string.IsNullOrWhiteSpace(_filterText))
+            {
+                var filterLower = _filterText.ToLower();
+                
+                // Check if title contains the filter text
+                bool titleMatch = issue.Title?.ToLower().Contains(filterLower) ?? false;
+                
+                // Check if any tag contains the filter text
+                bool tagMatch = issue.Tags?.Any(tag => tag.ToLower().Contains(filterLower)) ?? false;
+                
+                matchesFilter = titleMatch || tagMatch;
+            }
+
+            if (matchesFilter)
+            {
+                _filteredIssues.Add(issue);
+            }
+        }
+    }
+
+    private void OnIssueFilterTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        _filterText = e.NewTextValue ?? string.Empty;
+        ApplyFilter();
+        
+        // Select first item if any matches exist
+        if (_filteredIssues.Any())
+        {
+            IssuesListView.SelectedItem = _filteredIssues.First();
+        }
+    }
+
     public class IssueItem : System.ComponentModel.INotifyPropertyChanged
     {
         private int _openTaskCount;
@@ -2970,6 +3024,7 @@ public partial class TerminalPage : ContentPage, IDisposable
         private string _status = "todo";
         private string _priority = "medium";
         private DateTime? _dueDate;
+        private List<string> _tags = new List<string>();
 
         public int Number { get; set; }
         public string Title { get; set; } = "";
@@ -2991,6 +3046,15 @@ public partial class TerminalPage : ContentPage, IDisposable
                     OnPropertyChanged(nameof(DueDateIconColor));
                     OnPropertyChanged(nameof(DueDateIconVisible));
                 }
+            }
+        }
+        public List<string> Tags
+        {
+            get => _tags;
+            set
+            {
+                _tags = value ?? new List<string>();
+                OnPropertyChanged(nameof(Tags));
             }
         }
 

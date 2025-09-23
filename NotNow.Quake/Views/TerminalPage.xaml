@@ -30,6 +30,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <!-- Issues Header with Toolbar -->
@@ -277,6 +278,23 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
+
+                    <!-- Filter TextBox at bottom of issues pane -->
+                    <Border Grid.Row="2"
+                            BackgroundColor="#1A1A1A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            Margin="0,5,0,0"
+                            Padding="5">
+                        <Entry x:Name="IssueFilterTextBox"
+                               Placeholder="Filter by title or tags..."
+                               PlaceholderColor="#808080"
+                               TextColor="#E0E0E0"
+                               BackgroundColor="Transparent"
+                               FontFamily="CascadiaMono"
+                               FontSize="12"
+                               TextChanged="OnIssueFilterTextChanged" />
+                    </Border>
                 </Grid>
 
                 <!-- Vertical Separator -->

@@ -40,10 +40,15 @@ public class IssueStateParser : IIssueStateParser
             Title = issue.Title
         };
 
-        // Parse commands from issue body first
+        // Parse commands from issue body first, but exclude embedded state
         if (!string.IsNullOrWhiteSpace(issue.Body))
         {
-            ParseCommands(issue.Body, state, issue.CreatedAt.UtcDateTime);
+            // Remove embedded state section before parsing to avoid parsing the lastCommand field
+            var bodyWithoutState = issue.Body;
+            var statePattern = $@"{Regex.Escape(IssueStateVersion.StateBeginMarker)}.*?{Regex.Escape(IssueStateVersion.StateEndMarker)}";
+            bodyWithoutState = Regex.Replace(bodyWithoutState, statePattern, "", RegexOptions.Singleline);
+            
+            ParseCommands(bodyWithoutState, state, issue.CreatedAt.UtcDateTime);
         }
 
         // Then parse commands from comments in chronological order
