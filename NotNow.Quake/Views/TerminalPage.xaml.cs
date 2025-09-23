@@ -35,6 +35,7 @@ public partial class TerminalPage : ContentPage, IDisposable
     private FileSystemWatcher? _configWatcher;
     private DateTime _lastConfigReload = DateTime.MinValue;
     private IServiceScope? _currentServiceScope;
+    private Octokit.User? _currentUser;
 
     public TerminalPage()
     {
@@ -179,7 +180,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     IsClosed = false
                 };
                 
-                // Try to extract task counts and status from embedded state
+                // Try to extract task counts, status, priority, and due date from embedded state
                 var versionedState = _issueStateParser?.ParseVersionedState(issue);
                 if (versionedState != null)
                 {
@@ -187,9 +188,24 @@ public partial class TerminalPage : ContentPage, IDisposable
                     issueItem.OpenTaskCount = taskCounts.Open;
                     issueItem.TotalTaskCount = taskCounts.Total;
                     issueItem.Status = versionedState.Data.Status ?? "todo";
+                    issueItem.Priority = versionedState.Data.Priority ?? "medium";
+                    issueItem.DueDate = versionedState.Data.DueDate;
                 }
                 
-                _issues.Add(issueItem);
+                // Apply priority filters (only for open issues)
+                bool shouldInclude = issueItem.Priority switch
+                {
+                    "critical" => _filterCriticalPriority,
+                    "high" => _filterHighPriority,
+                    "medium" => _filterMediumPriority,
+                    "low" => _filterLowPriority,
+                    _ => true // Include if priority is unknown
+                };
+                
+                if (shouldInclude)
+                {
+                    _issues.Add(issueItem);
+                }
             }
 
             // Only fetch and add closed issues if filter is OFF
@@ -206,7 +222,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                         IsClosed = true
                     };
                     
-                    // Try to extract task counts and status from embedded state
+                    // Try to extract task counts, status, priority, and due date from embedded state
                     var versionedState = _issueStateParser?.ParseVersionedState(issue);
                     if (versionedState != null)
                     {
@@ -214,8 +230,11 @@ public partial class TerminalPage : ContentPage, IDisposable
                         issueItem.OpenTaskCount = taskCounts.Open;
                         issueItem.TotalTaskCount = taskCounts.Total;
                         issueItem.Status = versionedState.Data.Status ?? "done";
+                        issueItem.Priority = versionedState.Data.Priority ?? "medium";
+                        issueItem.DueDate = versionedState.Data.DueDate;
                     }
                     
+                    // Closed issues are not filtered by priority
                     _issues.Add(issueItem);
                 }
             }
@@ -326,10 +345,15 @@ public partial class TerminalPage : ContentPage, IDisposable
             UpdateStatusButtonVisuals(_currentIssueStatus);
 
             StatusLabel.Text = _currentIssueStatus;
-            PriorityLabel.Text = state.Priority ?? "medium";
-            AssigneeLabel.Text = issue.Assignee?.Login ?? "unassigned";
+
+            // Update priority and visual state
+            _currentIssuePriority = state.Priority ?? "medium";
+            UpdatePriorityButtonVisuals(_currentIssuePriority);
+
+            PriorityLabel.Text = _currentIssuePriority;
+            AssigneeLabel.Text = state.Assignee ?? "unassigned";
             DueLabel.Text = state.DueDate?.ToString("yyyy-MM-dd") ?? "not set";
-            EstimateLabel.Text = state.Estimate ?? "not set";
+            EstimateLabel.Text = FormatEstimate(state.Estimate);
 
             // Update tags display
             UpdateTagsDisplay(state.Tags);
@@ -797,6 +821,69 @@ public partial class TerminalPage : ContentPage, IDisposable
         return string.Join(" ", parts);
     }
 
+    private string FormatEstimate(string? estimate)
+    {
+        if (string.IsNullOrWhiteSpace(estimate))
+            return "not set";
+
+        double totalMinutes = 0;
+
+        // First check if it's in HH:mm format (e.g., "01:30")
+        var timeFormatRegex = new Regex(@"^(\d{1,2}):(\d{2})$");
+        var timeMatch = timeFormatRegex.Match(estimate);
+
+        if (timeMatch.Success)
+        {
+            var hoursValue = int.Parse(timeMatch.Groups[1].Value);
+            var minutesValue = int.Parse(timeMatch.Groups[2].Value);
+            totalMinutes = hoursValue * 60 + minutesValue;
+        }
+        else
+        {
+            // Parse estimate string (e.g., "2h", "1.5h", "90m", "1d", "8h30m")
+            var regex = new Regex(@"(\d+(?:\.\d+)?)\s*([dhm])", RegexOptions.IgnoreCase);
+            var matches = regex.Matches(estimate);
+
+            if (matches.Count == 0)
+                return estimate; // Return as-is if we can't parse it
+
+            foreach (Match match in matches)
+            {
+                var value = double.Parse(match.Groups[1].Value);
+                var unit = match.Groups[2].Value.ToLower();
+
+                switch (unit)
+                {
+                    case "d":
+                        totalMinutes += value * 8 * 60; // 8 hours per day
+                        break;
+                    case "h":
+                        totalMinutes += value * 60;
+                        break;
+                    case "m":
+                        totalMinutes += value;
+                        break;
+                }
+            }
+        }
+
+        // Convert total minutes to days, hours, minutes
+        var days = (int)(totalMinutes / (8 * 60));
+        var remainingMinutes = totalMinutes - (days * 8 * 60);
+        var hours = (int)(remainingMinutes / 60);
+        var minutes = (int)(remainingMinutes % 60);
+
+        var parts = new List<string>();
+        if (days > 0)
+            parts.Add($"{days}d");
+        if (hours > 0)
+            parts.Add($"{hours}h");
+        if (minutes > 0)
+            parts.Add($"{minutes}m");
+
+        return parts.Count > 0 ? string.Join("", parts) : "0m";
+    }
+
     private void UpdateTimeTrackingCalendar(Core.Models.IssueState state)
     {
         WeekRowsContainer.Children.Clear();
@@ -1087,6 +1174,45 @@ public partial class TerminalPage : ContentPage, IDisposable
             return;
         }
 
+        // Validate duration format (e.g., 1d, 8h, 30m, 1d8h, 8h30m, 1d8h30m)
+        var durationRegex = new Regex(@"^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?$", RegexOptions.IgnoreCase);
+        var match = durationRegex.Match(duration);
+
+        if (!match.Success || match.Value == "")
+        {
+            await DisplayAlert("Error", "Duration must be in format like: 1d, 8h, 30m, 1d8h, 8h30m, or 1d8h30m", "OK");
+            return;
+        }
+
+        // Check that at least one time unit was specified
+        var hasValue = match.Groups[1].Success || match.Groups[2].Success || match.Groups[3].Success;
+        if (!hasValue)
+        {
+            await DisplayAlert("Error", "Duration must include at least one time unit (d, h, or m)", "OK");
+            return;
+        }
+
+        // Validate reasonable values
+        var days = match.Groups[1].Success ? int.Parse(match.Groups[1].Value) : 0;
+        var hours = match.Groups[2].Success ? int.Parse(match.Groups[2].Value) : 0;
+        var minutes = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
+
+        if (days > 365)
+        {
+            await DisplayAlert("Error", "Duration days cannot exceed 365", "OK");
+            return;
+        }
+        if (hours > 23)
+        {
+            await DisplayAlert("Error", "Duration hours cannot exceed 23", "OK");
+            return;
+        }
+        if (minutes > 59)
+        {
+            await DisplayAlert("Error", "Duration minutes cannot exceed 59", "OK");
+            return;
+        }
+
         try
         {
             // Check if services are initialized
@@ -1283,6 +1409,49 @@ public partial class TerminalPage : ContentPage, IDisposable
 
         var title = SubtaskTitleInput.Text.Trim();
         var estimate = SubtaskEstimateInput.Text?.Trim();
+
+        // Validate estimate format if provided
+        if (!string.IsNullOrWhiteSpace(estimate))
+        {
+            // Check format like 1d, 8h, 30m, 1d8h, 8h30m, 1d8h30m
+            var estimateRegex = new Regex(@"^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?$", RegexOptions.IgnoreCase);
+            var match = estimateRegex.Match(estimate);
+
+            if (!match.Success || match.Value == "")
+            {
+                await DisplayAlert("Error", "Estimate must be in format like: 1d, 8h, 30m, 1d8h, 8h30m, or 1d8h30m", "OK");
+                return;
+            }
+
+            // Check that at least one time unit was specified
+            var hasValue = match.Groups[1].Success || match.Groups[2].Success || match.Groups[3].Success;
+            if (!hasValue)
+            {
+                await DisplayAlert("Error", "Estimate must include at least one time unit (d, h, or m)", "OK");
+                return;
+            }
+
+            // Validate reasonable values
+            var days = match.Groups[1].Success ? int.Parse(match.Groups[1].Value) : 0;
+            var hours = match.Groups[2].Success ? int.Parse(match.Groups[2].Value) : 0;
+            var minutes = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
+
+            if (days > 365)
+            {
+                await DisplayAlert("Error", "Estimate days cannot exceed 365", "OK");
+                return;
+            }
+            if (hours > 23)
+            {
+                await DisplayAlert("Error", "Estimate hours cannot exceed 23", "OK");
+                return;
+            }
+            if (minutes > 59)
+            {
+                await DisplayAlert("Error", "Estimate minutes cannot exceed 59", "OK");
+                return;
+            }
+        }
 
         // Hide the input panel
         SubtaskInputPanel.IsVisible = false;
@@ -1608,6 +1777,9 @@ public partial class TerminalPage : ContentPage, IDisposable
         IssueInputPanel.IsVisible = true;
         IssueTitleInput.Text = "";
         IssueDescriptionInput.Text = "";
+        // Set default due date to +7 days from today
+        IssueDueDateInput.Text = DateTime.Today.AddDays(7).ToString("yyyy-MM-dd");
+        IssueEstimateInput.Text = "";
         IssueTitleInput.Focus();
     }
 
@@ -1617,6 +1789,8 @@ public partial class TerminalPage : ContentPage, IDisposable
         IssueInputPanel.IsVisible = false;
         IssueTitleInput.Text = "";
         IssueDescriptionInput.Text = "";
+        IssueDueDateInput.Text = "";
+        IssueEstimateInput.Text = "";
     }
 
     private async void OnCreateIssue(object? sender, EventArgs e)
@@ -1629,6 +1803,70 @@ public partial class TerminalPage : ContentPage, IDisposable
 
         var title = IssueTitleInput.Text.Trim();
         var description = IssueDescriptionInput.Text?.Trim() ?? "";
+        var dueDate = IssueDueDateInput.Text?.Trim();
+        var estimate = IssueEstimateInput.Text?.Trim();
+
+        // Validate due date format if provided
+        if (!string.IsNullOrWhiteSpace(dueDate))
+        {
+            // Check YYYY-MM-DD format
+            var dateRegex = new Regex(@"^\d{4}-\d{2}-\d{2}$");
+            if (!dateRegex.IsMatch(dueDate))
+            {
+                await DisplayAlert("Error", "Due date must be in YYYY-MM-DD format", "OK");
+                return;
+            }
+
+            // Try to parse as a valid date
+            if (!DateTime.TryParseExact(dueDate, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out _))
+            {
+                await DisplayAlert("Error", "Due date is not a valid date", "OK");
+                return;
+            }
+        }
+
+        // Validate estimate format if provided
+        if (!string.IsNullOrWhiteSpace(estimate))
+        {
+            // Check format like 1d, 8h, 30m, 1d8h, 8h30m, 1d8h30m
+            var estimateRegex = new Regex(@"^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?$", RegexOptions.IgnoreCase);
+            var match = estimateRegex.Match(estimate);
+
+            if (!match.Success || match.Value == "")
+            {
+                await DisplayAlert("Error", "Estimate must be in format like: 1d, 8h, 30m, 1d8h, 8h30m, or 1d8h30m", "OK");
+                return;
+            }
+
+            // Check that at least one time unit was specified
+            var hasValue = match.Groups[1].Success || match.Groups[2].Success || match.Groups[3].Success;
+            if (!hasValue)
+            {
+                await DisplayAlert("Error", "Estimate must include at least one time unit (d, h, or m)", "OK");
+                return;
+            }
+
+            // Validate reasonable values
+            var days = match.Groups[1].Success ? int.Parse(match.Groups[1].Value) : 0;
+            var hours = match.Groups[2].Success ? int.Parse(match.Groups[2].Value) : 0;
+            var minutes = match.Groups[3].Success ? int.Parse(match.Groups[3].Value) : 0;
+
+            if (days > 365)
+            {
+                await DisplayAlert("Error", "Estimate days cannot exceed 365", "OK");
+                return;
+            }
+            if (hours > 23)
+            {
+                await DisplayAlert("Error", "Estimate hours cannot exceed 23", "OK");
+                return;
+            }
+            if (minutes > 59)
+            {
+                await DisplayAlert("Error", "Estimate minutes cannot exceed 59", "OK");
+                return;
+            }
+        }
 
         // Hide the input panel
         IssueInputPanel.IsVisible = false;
@@ -1669,9 +1907,68 @@ public partial class TerminalPage : ContentPage, IDisposable
 
                 await PostCommandAndUpdateState(newIssue.Number, statusCommand, statusResult);
 
+                // Post the /notnow priority medium command to set initial priority
+                var priorityCommand = "/notnow priority medium";
+                var priorityResult = new ExecutionResult
+                {
+                    Results = new List<CommandResult>
+                    {
+                        CommandResult.Ok("Priority set to medium", new { Priority = "medium" })
+                    }
+                };
+
+                await PostCommandAndUpdateState(newIssue.Number, priorityCommand, priorityResult);
+
+                // Auto-assign to current user if available
+                if (_currentUser != null)
+                {
+                    var assignCommand = $"/notnow assign {_currentUser.Login}";
+                    var assignResult = new ExecutionResult
+                    {
+                        Results = new List<CommandResult>
+                        {
+                            CommandResult.Ok($"Assigned to {_currentUser.Login}", new { Assignee = _currentUser.Login })
+                        }
+                    };
+
+                    await PostCommandAndUpdateState(newIssue.Number, assignCommand, assignResult);
+                }
+
+                // Set due date if provided
+                if (!string.IsNullOrWhiteSpace(dueDate))
+                {
+                    var dueCommand = $"/notnow due {dueDate}";
+                    var dueResult = new ExecutionResult
+                    {
+                        Results = new List<CommandResult>
+                        {
+                            CommandResult.Ok($"Due date set to {dueDate}", new { DueDate = dueDate })
+                        }
+                    };
+
+                    await PostCommandAndUpdateState(newIssue.Number, dueCommand, dueResult);
+                }
+
+                // Set estimate if provided
+                if (!string.IsNullOrWhiteSpace(estimate))
+                {
+                    var estimateCommand = $"/notnow estimate {estimate}";
+                    var estimateResult = new ExecutionResult
+                    {
+                        Results = new List<CommandResult>
+                        {
+                            CommandResult.Ok($"Estimate set to {estimate}", new { Estimate = estimate })
+                        }
+                    };
+
+                    await PostCommandAndUpdateState(newIssue.Number, estimateCommand, estimateResult);
+                }
+
                 // Clear inputs
                 IssueTitleInput.Text = "";
                 IssueDescriptionInput.Text = "";
+                IssueDueDateInput.Text = "";
+                IssueEstimateInput.Text = "";
 
                 // Add a small delay to ensure GitHub has processed the new issue
                 await Task.Delay(1000);
@@ -1941,6 +2238,178 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
     }
 
+    private string _currentIssuePriority = "medium";
+    
+    private async void OnPriorityCriticalClicked(object sender, EventArgs e)
+    {
+        await SetIssuePriority("critical");
+    }
+
+    private async void OnPriorityHighClicked(object sender, EventArgs e)
+    {
+        await SetIssuePriority("high");
+    }
+
+    private async void OnPriorityMediumClicked(object sender, EventArgs e)
+    {
+        await SetIssuePriority("medium");
+    }
+
+    private async void OnPriorityLowClicked(object sender, EventArgs e)
+    {
+        await SetIssuePriority("low");
+    }
+
+    private async Task SetIssuePriority(string priority)
+    {
+        if (_selectedIssue == null || _commandPostingService == null)
+            return;
+
+        // Don't allow priority changes on closed issues
+        if (_selectedIssue.IsClosed || _currentIssueStatus == "done")
+            return;
+
+        try
+        {
+            // Don't do anything if priority is already set
+            if (_currentIssuePriority == priority)
+                return;
+
+            var priorityCommand = $"/notnow priority {priority}";
+            var priorityResult = new ExecutionResult
+            {
+                Results = new List<CommandResult>
+                {
+                    CommandResult.Ok($"Priority set to {priority}", new { Priority = priority })
+                }
+            };
+
+            await PostCommandAndUpdateState(_selectedIssue.Number, priorityCommand, priorityResult);
+
+            // Update the current priority
+            _currentIssuePriority = priority;
+            UpdatePriorityButtonVisuals(priority);
+
+            // Update the issue in the list
+            var issueInList = _issues.FirstOrDefault(i => i.Number == _selectedIssue.Number);
+            if (issueInList != null)
+            {
+                issueInList.Priority = priority;
+            }
+
+            // Refresh issue details to show the updated state
+            await LoadIssueDetails(_selectedIssue.Number);
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Error", $"Failed to set priority: {ex.Message}", "OK");
+        }
+    }
+
+    private void UpdatePriorityButtonVisuals(string activePriority)
+    {
+        // Check if issue is closed
+        bool isDisabled = _selectedIssue?.IsClosed ?? false;
+        
+        // Reset all buttons to default state
+        CriticalPriorityButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        CriticalPriorityLabel.TextColor = Color.FromArgb("#4A9EFF");
+        CriticalPriorityButton.IsEnabled = !isDisabled;
+        CriticalPriorityLabel.Opacity = isDisabled ? 0.5 : 1.0;
+        
+        HighPriorityButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        HighPriorityLabel.TextColor = Color.FromArgb("#4A9EFF");
+        HighPriorityButton.IsEnabled = !isDisabled;
+        HighPriorityLabel.Opacity = isDisabled ? 0.5 : 1.0;
+        
+        MediumPriorityButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        MediumPriorityLabel.TextColor = Color.FromArgb("#4A9EFF");
+        MediumPriorityButton.IsEnabled = !isDisabled;
+        MediumPriorityLabel.Opacity = isDisabled ? 0.5 : 1.0;
+        
+        LowPriorityButton.BackgroundColor = Color.FromArgb("#2A2A2A");
+        LowPriorityLabel.TextColor = Color.FromArgb("#4A9EFF");
+        LowPriorityButton.IsEnabled = !isDisabled;
+        LowPriorityLabel.Opacity = isDisabled ? 0.5 : 1.0;
+
+        // Only highlight the active button if not disabled
+        if (!isDisabled)
+        {
+            switch (activePriority)
+            {
+                case "critical":
+                    CriticalPriorityButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    CriticalPriorityLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+                case "high":
+                    HighPriorityButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    HighPriorityLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+                case "medium":
+                    MediumPriorityButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    MediumPriorityLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+                case "low":
+                    LowPriorityButton.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    LowPriorityLabel.TextColor = Color.FromArgb("#FFFFFF");
+                    break;
+            }
+        }
+    }
+
+    // Priority Filters
+    private bool _filterCriticalPriority = true;
+    private bool _filterHighPriority = true;
+    private bool _filterMediumPriority = true;
+    private bool _filterLowPriority = true;
+
+    private async void OnPriorityFilterCriticalClicked(object sender, EventArgs e)
+    {
+        _filterCriticalPriority = !_filterCriticalPriority;
+        UpdatePriorityFilterVisual(CriticalPriorityFilter, CriticalPriorityFilterLabel, _filterCriticalPriority);
+        await ApplyPriorityFilters();
+    }
+
+    private async void OnPriorityFilterHighClicked(object sender, EventArgs e)
+    {
+        _filterHighPriority = !_filterHighPriority;
+        UpdatePriorityFilterVisual(HighPriorityFilter, HighPriorityFilterLabel, _filterHighPriority);
+        await ApplyPriorityFilters();
+    }
+
+    private async void OnPriorityFilterMediumClicked(object sender, EventArgs e)
+    {
+        _filterMediumPriority = !_filterMediumPriority;
+        UpdatePriorityFilterVisual(MediumPriorityFilter, MediumPriorityFilterLabel, _filterMediumPriority);
+        await ApplyPriorityFilters();
+    }
+
+    private async void OnPriorityFilterLowClicked(object sender, EventArgs e)
+    {
+        _filterLowPriority = !_filterLowPriority;
+        UpdatePriorityFilterVisual(LowPriorityFilter, LowPriorityFilterLabel, _filterLowPriority);
+        await ApplyPriorityFilters();
+    }
+
+    private void UpdatePriorityFilterVisual(Border border, Label label, bool isActive)
+    {
+        if (isActive)
+        {
+            border.BackgroundColor = Color.FromArgb("#4A9EFF");
+            label.TextColor = Color.FromArgb("#FFFFFF");
+        }
+        else
+        {
+            border.BackgroundColor = Color.FromArgb("#2A2A2A");
+            label.TextColor = Color.FromArgb("#4A9EFF");
+        }
+    }
+
+    private async Task ApplyPriorityFilters()
+    {
+        await LoadIssuesAsync();
+    }
+
     private void OnCloseDeveloperMode(object sender, EventArgs e)
     {
         DeveloperModePanel.IsVisible = false;
@@ -1990,6 +2459,39 @@ public partial class TerminalPage : ContentPage, IDisposable
         if (selectedIndex >= 0)
         {
             RepositorySelector.SelectedIndex = selectedIndex;
+        }
+
+        // Load the current user
+        _ = Task.Run(async () => await LoadCurrentUserAsync());
+    }
+
+    private async Task LoadCurrentUserAsync()
+    {
+        try
+        {
+            if (_gitHubService == null) return;
+
+            _currentUser = await _gitHubService.GetCurrentUserAsync();
+
+            // Update the UI with the username on the main thread
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (_currentUser != null && CurrentUserLabel != null)
+                {
+                    CurrentUserLabel.Text = _currentUser.Login;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[TerminalPage] Failed to load current user: {ex.Message}");
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (CurrentUserLabel != null)
+                {
+                    CurrentUserLabel.Text = "Unknown";
+                }
+            });
         }
     }
 
@@ -2386,13 +2888,87 @@ public partial class TerminalPage : ContentPage, IDisposable
         private int _openTaskCount;
         private int _totalTaskCount;
         private string _status = "todo";
+        private string _priority = "medium";
+        private DateTime? _dueDate;
 
         public int Number { get; set; }
         public string Title { get; set; } = "";
         public string DisplayText { get; set; } = "";
         public bool IsSelected { get; set; }
         public bool IsClosed { get; set; }
-        
+
+        // Due date property
+        public DateTime? DueDate
+        {
+            get => _dueDate;
+            set
+            {
+                if (_dueDate != value)
+                {
+                    _dueDate = value;
+                    OnPropertyChanged(nameof(DueDate));
+                    OnPropertyChanged(nameof(DueDateIcon));
+                    OnPropertyChanged(nameof(DueDateIconColor));
+                    OnPropertyChanged(nameof(DueDateIconVisible));
+                }
+            }
+        }
+
+        // Due date icon - only show if due tomorrow, today, or overdue
+        public string DueDateIcon => "\ue878"; // Codepoint e878
+
+        public string DueDateIconColor
+        {
+            get
+            {
+                if (!_dueDate.HasValue) return "";
+
+                var today = DateTime.Today;
+                var dueDate = _dueDate.Value.Date;
+
+                if (dueDate < today) return "#FF4444"; // Red for overdue
+                if (dueDate == today) return "#FFA500"; // Orange for today
+                if (dueDate == today.AddDays(1)) return "#00FF00"; // Green for tomorrow
+
+                return "";
+            }
+        }
+
+        public bool DueDateIconVisible
+        {
+            get
+            {
+                if (!_dueDate.HasValue) return false;
+
+                var today = DateTime.Today;
+                var dueDate = _dueDate.Value.Date;
+
+                // Show icon if due tomorrow, today, or overdue
+                return dueDate <= today.AddDays(1);
+            }
+        }
+
+        // Priority property with notification
+        public string Priority
+        {
+            get => _priority;
+            set
+            {
+                if (_priority != value)
+                {
+                    _priority = value;
+                    OnPropertyChanged(nameof(Priority));
+                    OnPropertyChanged(nameof(CriticalPriorityIcon));
+                    OnPropertyChanged(nameof(CriticalPriorityIconVisible));
+                }
+            }
+        }
+
+        // Critical priority icon - only show for critical priority issues
+        public string CriticalPriorityIcon => "\uef55"; // Codepoint ef55
+        public string CriticalPriorityIconColor => "#FF0000"; // Red color
+        public bool CriticalPriorityIconVisible => Priority == "critical";
+
         // Status property with notification
         public string Status 
         { 
@@ -2429,7 +3005,8 @@ public partial class TerminalPage : ContentPage, IDisposable
                 {
                     _openTaskCount = value;
                     OnPropertyChanged(nameof(OpenTaskCount));
-                    OnPropertyChanged(nameof(TaskCountDisplay));
+                    OnPropertyChanged(nameof(TaskCountIcon));
+                    OnPropertyChanged(nameof(TaskCountIconVisible));
                     OnPropertyChanged(nameof(FullDisplayText));
                 }
             }
@@ -2444,12 +3021,26 @@ public partial class TerminalPage : ContentPage, IDisposable
                 {
                     _totalTaskCount = value;
                     OnPropertyChanged(nameof(TotalTaskCount));
-                    OnPropertyChanged(nameof(TaskCountDisplay));
+                    OnPropertyChanged(nameof(TaskCountIcon));
+                    OnPropertyChanged(nameof(TaskCountIconVisible));
                     OnPropertyChanged(nameof(FullDisplayText));
                 }
             }
         }
         
+        // Task count icon - shows icon if there are any open subtasks
+        public string TaskCountIcon
+        {
+            get
+            {
+                // Show e2e6 icon if there are any open subtasks, otherwise no icon
+                return OpenTaskCount > 0 ? "\ue2e6" : "";
+            }
+        }
+
+        public bool TaskCountIconVisible => OpenTaskCount > 0;
+
+        // Legacy property for backward compatibility
         public string TaskCountDisplay => TotalTaskCount > 0 ? $" [{OpenTaskCount}/{TotalTaskCount}]" : "";
 
         // Display properties

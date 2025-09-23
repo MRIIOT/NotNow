@@ -12,4 +12,5 @@ public interface IGitHubService
     Task<Issue> ReopenIssueAsync(int issueNumber);
     Task<Issue> UpdateIssueAsync(int issueNumber, string? title = null, string? body = null, ItemState? state = null);
     Task<Issue> GetIssueAsync(int issueNumber);
+    Task<User> GetCurrentUserAsync();
 }

@@ -215,4 +215,17 @@ public class GitHubService : IGitHubService
             throw new Exception($"Error retrieving issue #{issueNumber}: {ex.Message}", ex);
         }
     }
+
+    public async Task<User> GetCurrentUserAsync()
+    {
+        try
+        {
+            var user = await _client.User.Current();
+            return user;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error retrieving current user: {ex.Message}", ex);
+        }
+    }
 }

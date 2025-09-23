@@ -96,6 +96,105 @@
                                     </Label.GestureRecognizers>
                                 </Label>
                             </Border>
+
+                            <!-- Priority Filter Buttons -->
+                            <HorizontalStackLayout Spacing="0">
+                                <!-- Critical Priority Filter -->
+                                <Border x:Name="CriticalPriorityFilter"
+                                        BackgroundColor="#4A9EFF"
+                                        StrokeThickness="1"
+                                        Stroke="#4A9EFF"
+                                        HeightRequest="30"
+                                        WidthRequest="30"
+                                        VerticalOptions="Center">
+                                    <Label Text="&#xe3d0;"
+                                           x:Name="CriticalPriorityFilterLabel"
+                                           TextColor="#FFFFFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="18"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"
+                                           ToolTipProperties.Text="Filter Critical priority">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPriorityFilterCriticalClicked" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+
+                                <!-- High Priority Filter -->
+                                <Border x:Name="HighPriorityFilter"
+                                        BackgroundColor="#4A9EFF"
+                                        StrokeThickness="1"
+                                        Stroke="#4A9EFF"
+                                        HeightRequest="30"
+                                        WidthRequest="30"
+                                        VerticalOptions="Center">
+                                    <Label Text="&#xe3d1;"
+                                           x:Name="HighPriorityFilterLabel"
+                                           TextColor="#FFFFFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="18"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"
+                                           ToolTipProperties.Text="Filter High priority">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPriorityFilterHighClicked" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+
+                                <!-- Medium Priority Filter -->
+                                <Border x:Name="MediumPriorityFilter"
+                                        BackgroundColor="#4A9EFF"
+                                        StrokeThickness="1"
+                                        Stroke="#4A9EFF"
+                                        HeightRequest="30"
+                                        WidthRequest="30"
+                                        VerticalOptions="Center">
+                                    <Label Text="&#xe3d2;"
+                                           x:Name="MediumPriorityFilterLabel"
+                                           TextColor="#FFFFFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="18"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"
+                                           ToolTipProperties.Text="Filter Medium priority">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPriorityFilterMediumClicked" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+
+                                <!-- Low Priority Filter -->
+                                <Border x:Name="LowPriorityFilter"
+                                        BackgroundColor="#4A9EFF"
+                                        StrokeThickness="1"
+                                        Stroke="#4A9EFF"
+                                        HeightRequest="30"
+                                        WidthRequest="30"
+                                        VerticalOptions="Center">
+                                    <Label Text="&#xe3d4;"
+                                           x:Name="LowPriorityFilterLabel"
+                                           TextColor="#FFFFFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="18"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center"
+                                           HorizontalTextAlignment="Center"
+                                           VerticalTextAlignment="Center"
+                                           ToolTipProperties.Text="Filter Low priority">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPriorityFilterLowClicked" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                            </HorizontalStackLayout>
                         </HorizontalStackLayout>
                     </Grid>
 
@@ -146,6 +245,13 @@
                                                FontFamily="CascadiaMono"
                                                FontSize="13" />
 
+                                        <!-- Critical priority icon (for critical priority issues) -->
+                                        <Label Text="{Binding CriticalPriorityIcon}"
+                                               TextColor="{Binding CriticalPriorityIconColor}"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="13"
+                                               IsVisible="{Binding CriticalPriorityIconVisible}" />
+
                                         <!-- Status icon (for in_progress or blocked) -->
                                         <Label Text="{Binding StatusIcon}"
                                                TextColor="#FFA500"
@@ -153,11 +259,19 @@
                                                FontSize="13"
                                                IsVisible="{Binding StatusIconVisible}" />
 
-                                        <!-- Task count in light gray -->
-                                        <Label Text="{Binding TaskCountDisplay}"
+                                        <!-- Due date icon (for tomorrow, today, or overdue) -->
+                                        <Label Text="{Binding DueDateIcon}"
+                                               TextColor="{Binding DueDateIconColor}"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="13"
+                                               IsVisible="{Binding DueDateIconVisible}" />
+
+                                        <!-- Task count icon (shows icon based on open subtask count) -->
+                                        <Label Text="{Binding TaskCountIcon}"
                                                TextColor="#A0A0A0"
-                                               FontFamily="CascadiaMono"
-                                               FontSize="13" />
+                                               FontFamily="MaterialIcons"
+                                               FontSize="13"
+                                               IsVisible="{Binding TaskCountIconVisible}" />
                                     </HorizontalStackLayout>
                                 </Grid>
                             </DataTemplate>
@@ -259,6 +373,105 @@
                                                ToolTipProperties.Text="Set status to Blocked">
                                             <Label.GestureRecognizers>
                                                 <TapGestureRecognizer Tapped="OnStatusBlockedClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+                                </HorizontalStackLayout>
+
+                                <!-- Priority Toggle Buttons -->
+                                <HorizontalStackLayout Spacing="0">
+                                    <!-- Critical Priority Button -->
+                                    <Border x:Name="CriticalPriorityButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xe400;"
+                                               x:Name="CriticalPriorityLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set priority to Critical">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnPriorityCriticalClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- High Priority Button -->
+                                    <Border x:Name="HighPriorityButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xe401;"
+                                               x:Name="HighPriorityLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set priority to High">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnPriorityHighClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- Medium Priority Button -->
+                                    <Border x:Name="MediumPriorityButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xe3fb;"
+                                               x:Name="MediumPriorityLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set priority to Medium">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnPriorityMediumClicked" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                    </Border>
+
+                                    <!-- Low Priority Button -->
+                                    <Border x:Name="LowPriorityButton"
+                                            BackgroundColor="#2A2A2A"
+                                            StrokeThickness="1"
+                                            Stroke="#4A9EFF"
+                                            HeightRequest="30"
+                                            WidthRequest="30"
+                                            VerticalOptions="Center">
+                                        <Label Text="&#xe3fd;"
+                                               x:Name="LowPriorityLabel"
+                                               TextColor="#4A9EFF"
+                                               FontFamily="MaterialIcons"
+                                               FontSize="20"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               ToolTipProperties.Text="Set priority to Low">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer Tapped="OnPriorityLowClicked" />
                                             </Label.GestureRecognizers>
                                         </Label>
                                     </Border>
@@ -1158,6 +1371,7 @@
         <Grid Grid.Row="1" HorizontalOptions="Fill" VerticalOptions="Center" Margin="10,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -1173,8 +1387,26 @@
                    HorizontalOptions="Start"
                    Margin="0,0,20,0" />
 
+            <!-- Current User Display -->
+            <HorizontalStackLayout Grid.Column="1"
+                                   Spacing="5"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,20,0">
+                <Label Text="User:"
+                       TextColor="#606060"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       VerticalTextAlignment="Center" />
+                <Label x:Name="CurrentUserLabel"
+                       Text="Loading..."
+                       TextColor="#4A9EFF"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       VerticalTextAlignment="Center" />
+            </HorizontalStackLayout>
+
             <!-- Repository Selector -->
-            <HorizontalStackLayout Grid.Column="2"
+            <HorizontalStackLayout Grid.Column="3"
                                    Spacing="8"
                                    VerticalOptions="Center"
                                    Margin="0,0,20,0">
@@ -1194,7 +1426,7 @@
             </HorizontalStackLayout>
 
             <!-- Settings Button -->
-            <Border Grid.Column="3"
+            <Border Grid.Column="4"
                     x:Name="SettingsButton"
                     BackgroundColor="#2A2A2A"
                     StrokeThickness="1"
@@ -1218,7 +1450,7 @@
                 </Label>
             </Border>
 
-            <Image Grid.Column="4"
+            <Image Grid.Column="5"
                    Source="notnow_logo_square.png"
                    WidthRequest="30"
                    HeightRequest="30"
@@ -1367,9 +1599,35 @@
                         FontSize="12"
                         Placeholder="Enter issue description..."
                         PlaceholderColor="#606060"
-                        HeightRequest="150"
+                        HeightRequest="112"
                         AutoSize="TextChanges"
-                        MaximumHeightRequest="250" />
+                        MaximumHeightRequest="187" />
+
+                <!-- Due Date Input -->
+                <Label Text="Due Date (optional, YYYY-MM-DD):"
+                       TextColor="#808080"
+                       FontFamily="CascadiaMono"
+                       FontSize="12" />
+                <Entry x:Name="IssueDueDateInput"
+                       TextColor="#FFFFFF"
+                       BackgroundColor="#2A2A2A"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       Placeholder="YYYY-MM-DD"
+                       PlaceholderColor="#606060" />
+
+                <!-- Estimate Input -->
+                <Label Text="Estimate (optional, e.g. 1h30m):"
+                       TextColor="#808080"
+                       FontFamily="CascadiaMono"
+                       FontSize="12" />
+                <Entry x:Name="IssueEstimateInput"
+                       TextColor="#FFFFFF"
+                       BackgroundColor="#2A2A2A"
+                       FontFamily="CascadiaMono"
+                       FontSize="12"
+                       Placeholder="e.g. 2h, 30m, 1h30m"
+                       PlaceholderColor="#606060" />
 
                 <!-- Action Buttons -->
                 <HorizontalStackLayout Spacing="10" HorizontalOptions="End">
