@@ -1405,6 +1405,17 @@
                        VerticalTextAlignment="Center" />
             </HorizontalStackLayout>
 
+            <!-- Loading Indicator (center of footer) -->
+            <Label Grid.Column="2"
+                   x:Name="LoadingIndicator"
+                   Text="&#xe863;"
+                   FontFamily="MaterialIcons"
+                   FontSize="20"
+                   TextColor="#4A9EFF"
+                   IsVisible="False"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center" />
+
             <!-- Repository Selector -->
             <HorizontalStackLayout Grid.Column="3"
                                    Spacing="8"

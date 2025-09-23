@@ -166,6 +166,7 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             if (_gitHubService == null) return;
 
+            ShowLoadingIndicator();
             _issues.Clear();
 
             // Always fetch and add open issues (limit to 15)
@@ -248,6 +249,10 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             await DisplayAlert("Error", $"Failed to load issues: {ex.Message}", "OK");
         }
+        finally
+        {
+            HideLoadingIndicator();
+        }
     }
 
     private async void OnIssueSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -264,6 +269,8 @@ public partial class TerminalPage : ContentPage, IDisposable
         try
         {
             if (_gitHubService == null || _stateService == null || _issueStateParser == null) return;
+
+            ShowLoadingIndicator();
 
             // Get the specific issue
             var issue = await _gitHubService.GetIssueAsync(issueNumber);
@@ -439,6 +446,10 @@ public partial class TerminalPage : ContentPage, IDisposable
         catch (Exception ex)
         {
             await DisplayAlert("Error", $"Failed to load issue details: {ex.Message}", "OK");
+        }
+        finally
+        {
+            HideLoadingIndicator();
         }
     }
 
@@ -1875,6 +1886,8 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             if (_gitHubService == null || _commandPostingService == null) return;
 
+            ShowLoadingIndicator();
+
             // Create the new issue on GitHub
             var newIssue = await _gitHubService.CreateIssueAsync(title, description);
 
@@ -2009,6 +2022,10 @@ public partial class TerminalPage : ContentPage, IDisposable
         catch (Exception ex)
         {
             await DisplayAlert("Error", $"Failed to create issue: {ex.Message}", "OK");
+        }
+        finally
+        {
+            HideLoadingIndicator();
         }
     }
 
@@ -2465,12 +2482,71 @@ public partial class TerminalPage : ContentPage, IDisposable
         _ = Task.Run(async () => await LoadCurrentUserAsync());
     }
 
+    private CancellationTokenSource? _loadingAnimationCts;
+
+    private void ShowLoadingIndicator()
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (LoadingIndicator != null)
+            {
+                LoadingIndicator.IsVisible = true;
+
+                // Cancel any existing animation
+                _loadingAnimationCts?.Cancel();
+                _loadingAnimationCts = new CancellationTokenSource();
+
+                // Start continuous rotation animation in background
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        while (!_loadingAnimationCts.Token.IsCancellationRequested)
+                        {
+                            await MainThread.InvokeOnMainThreadAsync(async () =>
+                            {
+                                if (LoadingIndicator != null && LoadingIndicator.IsVisible)
+                                {
+                                    await LoadingIndicator.RotateTo(360, 333);
+                                    LoadingIndicator.Rotation = 0;
+                                }
+                            });
+
+                            if (_loadingAnimationCts.Token.IsCancellationRequested)
+                                break;
+                        }
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        // Animation was cancelled, this is expected
+                    }
+                });
+            }
+        });
+    }
+
+    private void HideLoadingIndicator()
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (LoadingIndicator != null)
+            {
+                // Cancel the rotation animation
+                _loadingAnimationCts?.Cancel();
+
+                LoadingIndicator.IsVisible = false;
+                LoadingIndicator.Rotation = 0;
+            }
+        });
+    }
+
     private async Task LoadCurrentUserAsync()
     {
         try
         {
             if (_gitHubService == null) return;
 
+            ShowLoadingIndicator();
             _currentUser = await _gitHubService.GetCurrentUserAsync();
 
             // Update the UI with the username on the main thread
@@ -2492,6 +2568,10 @@ public partial class TerminalPage : ContentPage, IDisposable
                     CurrentUserLabel.Text = "Unknown";
                 }
             });
+        }
+        finally
+        {
+            HideLoadingIndicator();
         }
     }
 
