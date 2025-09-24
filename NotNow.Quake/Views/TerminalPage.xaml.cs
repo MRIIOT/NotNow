@@ -61,6 +61,10 @@ public partial class TerminalPage : ContentPage, IDisposable
     private int _countdownRemainingSeconds = 1500;
     private bool _countdownTimerRunning = false;
 
+    // Week navigation for time tracking calendar (0 = current week, negative = past weeks)
+    private int _weekNavigationOffset = 0;
+    private Core.Models.IssueState? _currentIssueState = null;
+
     public TerminalPage()
     {
         try
@@ -386,7 +390,10 @@ public partial class TerminalPage : ContentPage, IDisposable
             {
                 Console.WriteLine($"[OnIssueSelectionChanged] Selected issue: #{issue.Number} - {issue.Title}");
                 _selectedIssue = issue;
-                
+
+                // Reset week navigation to current week when selecting a new issue
+                _weekNavigationOffset = 0;
+
                 Console.WriteLine($"[OnIssueSelectionChanged] Loading issue details for #{issue.Number}");
                 await LoadIssueDetails(issue.Number);
                 Console.WriteLine($"[OnIssueSelectionChanged] Issue details loaded for #{issue.Number}");
@@ -1419,11 +1426,15 @@ public partial class TerminalPage : ContentPage, IDisposable
 
     private void UpdateTimeTrackingCalendar(Core.Models.IssueState state)
     {
+        // Store the current state for navigation
+        _currentIssueState = state;
+
         WeekRowsContainer.Children.Clear();
         
         var today = DateTime.UtcNow.Date;
-        var currentWeekStart = today.AddDays(-(int)today.DayOfWeek); // Sunday of current week
-        var fourWeeksAgo = currentWeekStart.AddDays(-21); // Start 3 weeks before current week
+        var baseWeekStart = today.AddDays(-(int)today.DayOfWeek); // Sunday of current week
+        var displayWeekStart = baseWeekStart.AddDays(_weekNavigationOffset * 7); // Adjust by navigation offset
+        var fourWeeksAgo = displayWeekStart.AddDays(-21); // Start 3 weeks before display week
         
         // Group sessions by date (using EndedAt for completed sessions, StartedAt for active ones)
         var sessionsByDate = state.Sessions
@@ -1437,8 +1448,8 @@ public partial class TerminalPage : ContentPage, IDisposable
         // Generate 4 weeks
         for (int weekOffset = -3; weekOffset <= 0; weekOffset++)
         {
-            var weekStart = currentWeekStart.AddDays(weekOffset * 7);
-            var isCurrentWeek = weekOffset == 0;
+            var weekStart = displayWeekStart.AddDays(weekOffset * 7);
+            var isCurrentWeek = _weekNavigationOffset == 0 && weekOffset == 0; // Only highlight if viewing current period and it's the current week
             
             var weekGrid = new Grid
             {
@@ -1564,8 +1575,8 @@ public partial class TerminalPage : ContentPage, IDisposable
             WeekRowsContainer.Children.Add(weekGrid);
         }
         
-        // Update total only (removed average per day)
-        TotalTimeLabel.Text = $"Total: {totalHours:0.#}h";
+        // Update total for visible period
+        TotalTimeLabel.Text = $"Total for visible period: {totalHours:0.#}h";
     }
 
     private void OnSubtasksTabTapped(object? sender, EventArgs e)
@@ -1819,6 +1830,13 @@ public partial class TerminalPage : ContentPage, IDisposable
 
                 // Reload issue details to show updated time tracking
                 await LoadIssueDetails(_selectedIssue.Number);
+
+                // Update the issue in the list with new total time spent
+                var issueInList = _issues.FirstOrDefault(i => i.Number == _selectedIssue.Number);
+                if (issueInList != null && _currentIssueState != null)
+                {
+                    issueInList.TotalTimeSpent = _currentIssueState.TotalTimeSpent;
+                }
             }
             else
             {
@@ -3611,7 +3629,11 @@ public partial class TerminalPage : ContentPage, IDisposable
         CommentsList.Children.Clear();
         TagsContainer.Children.Clear();
         WeekRowsContainer.Children.Clear();
-        TotalTimeLabel.Text = "Total: 0h";
+        TotalTimeLabel.Text = "Total for visible period: 0h";
+
+        // Reset week navigation
+        _weekNavigationOffset = 0;
+        _currentIssueState = null;
     }
 
     // Helper class for deserializing config
@@ -3729,6 +3751,7 @@ public partial class TerminalPage : ContentPage, IDisposable
         private string _priority = "medium";
         private DateTime? _dueDate;
         private List<string> _tags = new List<string>();
+        private TimeSpan _totalTimeSpent = TimeSpan.Zero;
 
         public int Number { get; set; }
         public string Title { get; set; } = "";
@@ -3925,7 +3948,20 @@ public partial class TerminalPage : ContentPage, IDisposable
         public string FullDisplayText => DisplayText + TaskCountDisplay;
 
         // Total time spent on this issue
-        public TimeSpan TotalTimeSpent { get; set; } = TimeSpan.Zero;
+        public TimeSpan TotalTimeSpent
+        {
+            get { return _totalTimeSpent; }
+            set
+            {
+                if (_totalTimeSpent != value)
+                {
+                    _totalTimeSpent = value;
+                    OnPropertyChanged(nameof(TotalTimeSpent));
+                    OnPropertyChanged(nameof(FormattedTimeSpent));
+                    OnPropertyChanged(nameof(TimeSpentVisible));
+                }
+            }
+        }
 
         // Formatted time display for hover (0d0h0m format)
         public string FormattedTimeSpent
@@ -4450,6 +4486,32 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
 
         return null;
+    }
+
+    #endregion
+
+    #region Week Navigation Events
+
+    private void OnPreviousWeekClicked(object sender, EventArgs e)
+    {
+        _weekNavigationOffset -= 1; // Go back one week
+
+        // Update the calendar if we have the current issue state
+        if (_currentIssueState != null)
+        {
+            UpdateTimeTrackingCalendar(_currentIssueState);
+        }
+    }
+
+    private void OnNextWeekClicked(object sender, EventArgs e)
+    {
+        _weekNavigationOffset += 1; // Go forward one week
+
+        // Update the calendar if we have the current issue state
+        if (_currentIssueState != null)
+        {
+            UpdateTimeTrackingCalendar(_currentIssueState);
+        }
     }
 
     #endregion
