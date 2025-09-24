@@ -27,11 +27,20 @@ public partial class TerminalPage : ContentPage, IDisposable
     private IConfiguration? _configuration;
     private ObservableCollection<IssueItem> _issues;
     private ObservableCollection<IssueItem> _filteredIssues;
+    private ObservableCollection<GroupedIssueItem> _groupedIssues;
     private List<IssueItem> _allIssues = new List<IssueItem>();
     private string _filterText = string.Empty;
     private IssueItem? _selectedIssue;
     private bool _showCommandComments = false;  // OFF by default (commands are filtered/hidden)
     private bool _hideClosedIssues = true;  // ON by default (closed issues are hidden)
+    private bool _groupByTag = false;  // OFF by default (flat list view)
+    private enum SortMode
+    {
+        IssueNumberDescending,  // Default: newest issues first
+        DueDateAscending,       // Earliest due dates first (nulls at top)
+        DueDateDescending       // Latest due dates first (nulls at top)
+    }
+    private SortMode _sortMode = SortMode.IssueNumberDescending;
     private List<Octokit.IssueComment>? _allComments;
     private string? _pendingSubtaskId;  // Track subtask being completed
     private string? _currentRepositoryId;
@@ -52,6 +61,7 @@ public partial class TerminalPage : ContentPage, IDisposable
 
             _issues = new ObservableCollection<IssueItem>();
             _filteredIssues = new ObservableCollection<IssueItem>();
+            _groupedIssues = new ObservableCollection<GroupedIssueItem>();
             _allIssues = new List<IssueItem>();
             
             // Bind the filtered issues to the view
@@ -159,7 +169,10 @@ public partial class TerminalPage : ContentPage, IDisposable
 
     private async Task RefreshIssues()
     {
+        Console.WriteLine("[RefreshIssues] Starting refresh");
+        Console.WriteLine($"[RefreshIssues] Current groupByTag mode: {_groupByTag}");
         await LoadIssuesAsync();
+        Console.WriteLine("[RefreshIssues] Completed");
     }
 
     private async void LoadIssues()
@@ -169,19 +182,34 @@ public partial class TerminalPage : ContentPage, IDisposable
 
     private async Task LoadIssuesAsync()
     {
+        Console.WriteLine($"[LoadIssuesAsync] Starting. GroupByTag: {_groupByTag}, HideClosedIssues: {_hideClosedIssues}");
+        Console.WriteLine($"[LoadIssuesAsync] Collections - Issues: {_issues?.Count ?? 0}, AllIssues: {_allIssues?.Count ?? 0}, FilteredIssues: {_filteredIssues?.Count ?? 0}, GroupedIssues: {_groupedIssues?.Count ?? 0}");
+        
         try
         {
-            if (_gitHubService == null) return;
+            if (_gitHubService == null)
+            {
+                Console.WriteLine("[LoadIssuesAsync] GitHubService is null, returning");
+                return;
+            }
 
             ShowLoadingIndicator();
+            
+            Console.WriteLine("[LoadIssuesAsync] Clearing collections");
             _issues.Clear();
             _allIssues.Clear();
             _filteredIssues.Clear();
+            Console.WriteLine($"[LoadIssuesAsync] Collections cleared. Issues: {_issues.Count}, AllIssues: {_allIssues.Count}, FilteredIssues: {_filteredIssues.Count}");
 
             // Always fetch and add open issues (limit to 15)
+            Console.WriteLine("[LoadIssuesAsync] Fetching open issues from GitHub");
             var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
+            Console.WriteLine($"[LoadIssuesAsync] Fetched {openIssues?.Count ?? 0} open issues");
+            
+            int openIssuesAdded = 0;
             foreach (var issue in openIssues.Take(15))
             {
+                Console.WriteLine($"[LoadIssuesAsync] Processing open issue #{issue.Number}");
                 var issueItem = new IssueItem
                 {
                     Number = issue.Number,
@@ -201,6 +229,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     issueItem.Priority = versionedState.Data.Priority ?? "medium";
                     issueItem.DueDate = versionedState.Data.DueDate;
                     issueItem.Tags = versionedState.Data.Tags ?? new List<string>();
+                    Console.WriteLine($"[LoadIssuesAsync] Issue #{issue.Number} has {issueItem.Tags.Count} tags: [{string.Join(", ", issueItem.Tags)}]");
                 }
                 
                 // Apply priority filters (only for open issues)
@@ -213,19 +242,29 @@ public partial class TerminalPage : ContentPage, IDisposable
                     _ => true // Include if priority is unknown
                 };
                 
+                Console.WriteLine($"[LoadIssuesAsync] Issue #{issue.Number} priority: {issueItem.Priority}, should include: {shouldInclude}");
+                
                 if (shouldInclude)
                 {
                     _issues.Add(issueItem);
                     _allIssues.Add(issueItem);
+                    openIssuesAdded++;
+                    Console.WriteLine($"[LoadIssuesAsync] Added issue #{issue.Number} to collections. Issues count: {_issues.Count}, AllIssues count: {_allIssues.Count}");
                 }
             }
+            Console.WriteLine($"[LoadIssuesAsync] Added {openIssuesAdded} open issues to collections");
 
             // Only fetch and add closed issues if filter is OFF
             if (!_hideClosedIssues)
             {
+                Console.WriteLine("[LoadIssuesAsync] Fetching closed issues from GitHub");
                 var closedIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Closed);
+                Console.WriteLine($"[LoadIssuesAsync] Fetched {closedIssues?.Count ?? 0} closed issues");
+                
+                int closedIssuesAdded = 0;
                 foreach (var issue in closedIssues.Take(10))
                 {
+                    Console.WriteLine($"[LoadIssuesAsync] Processing closed issue #{issue.Number}");
                     var issueItem = new IssueItem
                     {
                         Number = issue.Number,
@@ -245,38 +284,99 @@ public partial class TerminalPage : ContentPage, IDisposable
                         issueItem.Priority = versionedState.Data.Priority ?? "medium";
                         issueItem.DueDate = versionedState.Data.DueDate;
                         issueItem.Tags = versionedState.Data.Tags ?? new List<string>();
+                        Console.WriteLine($"[LoadIssuesAsync] Issue #{issue.Number} has {issueItem.Tags.Count} tags: [{string.Join(", ", issueItem.Tags)}]");
                     }
                     
                     // Closed issues are not filtered by priority
                     _issues.Add(issueItem);
                     _allIssues.Add(issueItem);
+                    closedIssuesAdded++;
+                    Console.WriteLine($"[LoadIssuesAsync] Added closed issue #{issue.Number}. Issues count: {_issues.Count}, AllIssues count: {_allIssues.Count}");
                 }
+                Console.WriteLine($"[LoadIssuesAsync] Added {closedIssuesAdded} closed issues to collections");
+            }
+            else
+            {
+                Console.WriteLine("[LoadIssuesAsync] Skipping closed issues (hideClosedIssues is true)");
             }
 
+            Console.WriteLine($"[LoadIssuesAsync] Before ApplyFilter - Issues: {_issues.Count}, AllIssues: {_allIssues.Count}, FilteredIssues: {_filteredIssues.Count}");
             // Apply text filter
             ApplyFilter();
+            Console.WriteLine($"[LoadIssuesAsync] After ApplyFilter - Issues: {_issues.Count}, AllIssues: {_allIssues.Count}, FilteredIssues: {_filteredIssues.Count}");
 
             if (_filteredIssues.Any())
             {
-                IssuesListView.SelectedItem = _filteredIssues.First();
+                var firstIssue = _filteredIssues.First();
+                Console.WriteLine($"[LoadIssuesAsync] Selecting first filtered issue: #{firstIssue.Number}");
+                IssuesListView.SelectedItem = firstIssue;
             }
+            else
+            {
+                Console.WriteLine("[LoadIssuesAsync] No filtered issues to select");
+            }
+            
+            Console.WriteLine($"[LoadIssuesAsync] Completed successfully. Final counts - Issues: {_issues.Count}, AllIssues: {_allIssues.Count}, FilteredIssues: {_filteredIssues.Count}");
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[LoadIssuesAsync] ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[LoadIssuesAsync] Stack trace: {ex.StackTrace}");
             await DisplayAlert("Error", $"Failed to load issues: {ex.Message}", "OK");
         }
         finally
         {
             HideLoadingIndicator();
+            Console.WriteLine("[LoadIssuesAsync] Finished");
         }
     }
 
     private async void OnIssueSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (e.CurrentSelection.FirstOrDefault() is IssueItem issue)
+        try
         {
-            _selectedIssue = issue;
-            await LoadIssueDetails(issue.Number);
+            Console.WriteLine($"[OnIssueSelectionChanged] Selection changed event fired");
+            Console.WriteLine($"[OnIssueSelectionChanged] Group mode: {_groupByTag}");
+            Console.WriteLine($"[OnIssueSelectionChanged] Previous selection count: {e.PreviousSelection?.Count ?? 0}");
+            Console.WriteLine($"[OnIssueSelectionChanged] Current selection count: {e.CurrentSelection?.Count ?? 0}");
+            
+            if (e.CurrentSelection == null)
+            {
+                Console.WriteLine("[OnIssueSelectionChanged] CurrentSelection is null");
+                return;
+            }
+            
+            var selectedItem = e.CurrentSelection.FirstOrDefault();
+            Console.WriteLine($"[OnIssueSelectionChanged] Selected item type: {selectedItem?.GetType()?.Name ?? "null"}");
+            
+            if (selectedItem is IssueItem issue)
+            {
+                Console.WriteLine($"[OnIssueSelectionChanged] Selected issue: #{issue.Number} - {issue.Title}");
+                _selectedIssue = issue;
+                
+                Console.WriteLine($"[OnIssueSelectionChanged] Loading issue details for #{issue.Number}");
+                await LoadIssueDetails(issue.Number);
+                Console.WriteLine($"[OnIssueSelectionChanged] Issue details loaded for #{issue.Number}");
+            }
+            else if (selectedItem is GroupedIssueItem group)
+            {
+                // In case a group header is selected (shouldn't happen, but being defensive)
+                Console.WriteLine($"[OnIssueSelectionChanged] Group selected: {group.GroupName} with {group.Count} items");
+                // Don't load anything for group headers
+            }
+            else if (selectedItem != null)
+            {
+                Console.WriteLine($"[OnIssueSelectionChanged] Unexpected selection type: {selectedItem.GetType().FullName}");
+            }
+            else
+            {
+                Console.WriteLine("[OnIssueSelectionChanged] No item selected");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnIssueSelectionChanged] ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[OnIssueSelectionChanged] Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -572,6 +672,20 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // Add a small delay to ensure GitHub has processed the command
                 await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
+                // Update the tags in the issue item in memory
+                var issueInList = _allIssues.FirstOrDefault(i => i.Number == _selectedIssue.Number);
+                if (issueInList != null && issueInList.Tags.Contains(tag))
+                {
+                    issueInList.Tags.Remove(tag);
+                    
+                    // If we're in grouped mode, refresh the display to update grouping
+                    if (_groupByTag)
+                    {
+                        Console.WriteLine($"[OnRemoveTag] Tag '{tag}' removed from issue #{_selectedIssue.Number}, refreshing grouped display");
+                        ApplyFilter(); // This will call UpdateIssuesDisplay()
+                    }
+                }
+
                 // Reload issue details to show updated tags
                 await LoadIssueDetails(_selectedIssue.Number);
             }
@@ -582,6 +696,7 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[OnRemoveTag] ERROR: {ex.Message}");
             await DisplayAlert("Error", $"Failed to remove tag: {ex.Message}", "OK");
         }
     }
@@ -647,6 +762,20 @@ public partial class TerminalPage : ContentPage, IDisposable
                 // Add a small delay to ensure GitHub has processed the command
                 await Task.Delay(_configuration?.GetValue<int>("PostCommandDelay", 1000) ?? 1000);
 
+                // Update the tags in the issue item in memory
+                var issueInList = _allIssues.FirstOrDefault(i => i.Number == _selectedIssue.Number);
+                if (issueInList != null && !issueInList.Tags.Contains(tag))
+                {
+                    issueInList.Tags.Add(tag);
+                    
+                    // If we're in grouped mode, refresh the display to update grouping
+                    if (_groupByTag)
+                    {
+                        Console.WriteLine($"[OnSubmitTag] Tag '{tag}' added to issue #{_selectedIssue.Number}, refreshing grouped display");
+                        ApplyFilter(); // This will call UpdateIssuesDisplay()
+                    }
+                }
+
                 // Reload issue details to show updated tags
                 await LoadIssueDetails(_selectedIssue.Number);
             }
@@ -657,6 +786,7 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"[OnSubmitTag] ERROR: {ex.Message}");
             await DisplayAlert("Error", $"Failed to add tag: {ex.Message}", "OK");
         }
     }
@@ -818,6 +948,349 @@ public partial class TerminalPage : ContentPage, IDisposable
 
         // Reload issues with new filter
         await LoadIssuesAsync();
+    }
+
+    private async void OnGroupByTagToggled(object? sender, EventArgs e)
+    {
+        try
+        {
+            Console.WriteLine($"[OnGroupByTagToggled] Starting toggle. Current state: {_groupByTag}");
+            _groupByTag = !_groupByTag;
+            Console.WriteLine($"[OnGroupByTagToggled] New state: {_groupByTag}");
+
+            // Update toggle appearance
+            if (GroupByTagToggle != null && GroupByTagToggleBorder != null)
+            {
+                Console.WriteLine("[OnGroupByTagToggled] Updating toggle appearance");
+                if (_groupByTag)
+                {
+                    // ON state - grouping by tags
+                    GroupByTagToggleBorder.BackgroundColor = Color.FromArgb("#4A9EFF");
+                    GroupByTagToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                    GroupByTagToggle.TextColor = Color.FromArgb("#FFFFFF");
+                    ToolTipProperties.SetText(GroupByTagToggle, "Flat view");
+                }
+                else
+                {
+                    // OFF state - flat list
+                    GroupByTagToggleBorder.BackgroundColor = Color.FromArgb("#2A2A2A");
+                    GroupByTagToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                    GroupByTagToggle.TextColor = Color.FromArgb("#4A9EFF");
+                    ToolTipProperties.SetText(GroupByTagToggle, "Group by tags");
+                }
+                Console.WriteLine("[OnGroupByTagToggled] Toggle appearance updated");
+            }
+            else
+            {
+                Console.WriteLine($"[OnGroupByTagToggled] WARNING: GroupByTagToggle is null: {GroupByTagToggle == null}, GroupByTagToggleBorder is null: {GroupByTagToggleBorder == null}");
+            }
+
+            // Reorganize the display
+            Console.WriteLine("[OnGroupByTagToggled] Calling UpdateIssuesDisplay");
+            UpdateIssuesDisplay();
+            Console.WriteLine("[OnGroupByTagToggled] UpdateIssuesDisplay completed");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnGroupByTagToggled] ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[OnGroupByTagToggled] Stack trace: {ex.StackTrace}");
+            await DisplayAlert("Error", $"Failed to toggle group view: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnSortModeToggled(object? sender, EventArgs e)
+    {
+        try
+        {
+            Console.WriteLine($"[OnSortModeToggled] Current sort mode: {_sortMode}");
+            
+            // Cycle through sort modes
+            _sortMode = _sortMode switch
+            {
+                SortMode.IssueNumberDescending => SortMode.DueDateAscending,
+                SortMode.DueDateAscending => SortMode.DueDateDescending,
+                SortMode.DueDateDescending => SortMode.IssueNumberDescending,
+                _ => SortMode.IssueNumberDescending
+            };
+            
+            Console.WriteLine($"[OnSortModeToggled] New sort mode: {_sortMode}");
+            
+            // Update button appearance based on sort mode
+            if (SortModeToggle != null && SortModeToggleBorder != null)
+            {
+                switch (_sortMode)
+                {
+                    case SortMode.IssueNumberDescending:
+                        SortModeToggle.Text = "\ue164"; // sort icon
+                        ToolTipProperties.SetText(SortModeToggle, "Sort by: Issue # (newest first)");
+                        break;
+                    case SortMode.DueDateAscending:
+                        SortModeToggle.Text = "\ue5db"; // sort ascending icon
+                        ToolTipProperties.SetText(SortModeToggle, "Sort by: Due Date (earliest first)");
+                        break;
+                    case SortMode.DueDateDescending:
+                        SortModeToggle.Text = "\ue5d8"; // sort descending icon  
+                        ToolTipProperties.SetText(SortModeToggle, "Sort by: Due Date (latest first)");
+                        break;
+                }
+            }
+            
+            // Re-apply filter with new sort
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnSortModeToggled] ERROR: {ex.Message}");
+        }
+    }
+
+    private void UpdateIssuesDisplay()
+    {
+        try
+        {
+            Console.WriteLine($"[UpdateIssuesDisplay] Starting. Group by tag: {_groupByTag}");
+            Console.WriteLine($"[UpdateIssuesDisplay] Filtered issues count: {_filteredIssues?.Count ?? -1}");
+            Console.WriteLine($"[UpdateIssuesDisplay] IssuesListView null? {IssuesListView == null}");
+            Console.WriteLine($"[UpdateIssuesDisplay] IssuesListView.IsGrouped: {IssuesListView?.IsGrouped ?? false}");
+            Console.WriteLine($"[UpdateIssuesDisplay] Current ItemsSource type: {IssuesListView?.ItemsSource?.GetType()?.Name ?? "null"}");
+            
+            // Ensure we're on the UI thread
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                try
+                {
+                    // Validate state before making changes
+                    if (IssuesListView == null)
+                    {
+                        Console.WriteLine("[UpdateIssuesDisplay] ERROR: IssuesListView is null, cannot update display");
+                        return;
+                    }
+                    
+                    if (_filteredIssues == null)
+                    {
+                        Console.WriteLine("[UpdateIssuesDisplay] ERROR: _filteredIssues is null, initializing empty collection");
+                        _filteredIssues = new ObservableCollection<IssueItem>();
+                    }
+                    
+                    if (_groupByTag)
+                    {
+                        Console.WriteLine("[UpdateIssuesDisplay] Entering grouped mode");
+                        
+                        // CRITICAL: Unbind ItemsSource BEFORE modifying the collection
+                        Console.WriteLine("[UpdateIssuesDisplay] Unbinding ItemsSource before collection modifications");
+                        IssuesListView.ItemsSource = null;
+                        
+                        // Group issues by their first tag
+                        if (_groupedIssues == null)
+                        {
+                            Console.WriteLine("[UpdateIssuesDisplay] Creating new grouped issues collection");
+                            _groupedIssues = new ObservableCollection<GroupedIssueItem>();
+                        }
+                        else
+                        {
+                            // Clear the collection while it's not bound
+                            Console.WriteLine("[UpdateIssuesDisplay] Clearing grouped issues collection");
+                            _groupedIssues.Clear();
+                        }
+                        
+                        var groupDictionary = new Dictionary<string, List<IssueItem>>();
+                        
+                        Console.WriteLine($"[UpdateIssuesDisplay] Processing {_filteredIssues.Count} filtered issues");
+                        foreach (var issue in _filteredIssues)
+                        {
+                            if (issue == null)
+                            {
+                                Console.WriteLine("[UpdateIssuesDisplay] WARNING: Null issue in _filteredIssues, skipping");
+                                continue;
+                            }
+                            
+                            string groupKey = "Ungrouped";
+                            
+                            // Get first tag if available
+                            if (issue.Tags != null && issue.Tags.Any())
+                            {
+                                groupKey = issue.Tags.First();
+                                Console.WriteLine($"[UpdateIssuesDisplay] Issue #{issue.Number} grouped under '{groupKey}'");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[UpdateIssuesDisplay] Issue #{issue.Number} has no tags, placing in 'Ungrouped'");
+                            }
+                            
+                            // Create group list if it doesn't exist
+                            if (!groupDictionary.ContainsKey(groupKey))
+                            {
+                                Console.WriteLine($"[UpdateIssuesDisplay] Creating new group list for: {groupKey}");
+                                groupDictionary[groupKey] = new List<IssueItem>();
+                            }
+                            
+                            // Add issue to the group list
+                            groupDictionary[groupKey].Add(issue);
+                        }
+                        
+                        Console.WriteLine($"[UpdateIssuesDisplay] Created {groupDictionary.Count} groups");
+                        
+                        // Create GroupedIssueItem instances and sort
+                        var sortedGroups = groupDictionary
+                            .Select(kvp => new GroupedIssueItem(kvp.Key, kvp.Value))
+                            .OrderBy(g => g.GroupName == "Ungrouped" ? 1 : 0)
+                            .ThenBy(g => g.GroupName)
+                            .ToList(); // Materialize the query
+                        
+                        Console.WriteLine("[UpdateIssuesDisplay] Adding groups to collection");
+                        foreach (var group in sortedGroups)
+                        {
+                            Console.WriteLine($"[UpdateIssuesDisplay] Adding group '{group.GroupName}' with {group.Count} issues");
+                            try
+                            {
+                                _groupedIssues.Add(group);
+                            }
+                            catch (Exception addEx)
+                            {
+                                Console.WriteLine($"[UpdateIssuesDisplay] ERROR adding group '{group.GroupName}': {addEx.Message}");
+                                throw;
+                            }
+                        }
+                        
+                        Console.WriteLine($"[UpdateIssuesDisplay] All groups added. Total groups: {_groupedIssues.Count}");
+                        
+                        // Now set up the CollectionView for grouped display
+                        try
+                        {
+                            // Set IsGrouped BEFORE setting ItemsSource
+                            Console.WriteLine("[UpdateIssuesDisplay] Setting IsGrouped to true");
+                            IssuesListView.IsGrouped = true;
+                            
+                            Console.WriteLine($"[UpdateIssuesDisplay] Setting ItemsSource to _groupedIssues with {_groupedIssues.Count} groups");
+                            IssuesListView.ItemsSource = _groupedIssues;
+                            
+                            Console.WriteLine("[UpdateIssuesDisplay] Verifying ItemsSource was set");
+                            var newSource = IssuesListView.ItemsSource;
+                            Console.WriteLine($"[UpdateIssuesDisplay] New ItemsSource type: {newSource?.GetType()?.Name ?? "null"}");
+                            Console.WriteLine($"[UpdateIssuesDisplay] IssuesListView.IsGrouped after setting: {IssuesListView.IsGrouped}");
+                            
+                            Console.WriteLine("[UpdateIssuesDisplay] Grouped mode setup complete");
+                        }
+                        catch (Exception groupEx)
+                        {
+                            Console.WriteLine($"[UpdateIssuesDisplay] ERROR setting grouped ItemsSource: {groupEx.GetType().Name}: {groupEx.Message}");
+                            Console.WriteLine($"[UpdateIssuesDisplay] Inner exception: {groupEx.InnerException?.Message}");
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("[UpdateIssuesDisplay] Entering flat mode");
+                        
+                        // CRITICAL: Unbind ItemsSource BEFORE making changes
+                        Console.WriteLine("[UpdateIssuesDisplay] Unbinding ItemsSource before switching to flat mode");
+                        IssuesListView.ItemsSource = null;
+                        
+                        try
+                        {
+                            // Set IsGrouped BEFORE setting ItemsSource
+                            Console.WriteLine("[UpdateIssuesDisplay] Setting IsGrouped to false");
+                            IssuesListView.IsGrouped = false;
+                            
+                            Console.WriteLine($"[UpdateIssuesDisplay] Setting ItemsSource to _filteredIssues with {_filteredIssues.Count} items");
+                            IssuesListView.ItemsSource = _filteredIssues;
+                            
+                            Console.WriteLine("[UpdateIssuesDisplay] Verifying ItemsSource was set");
+                            var newSource = IssuesListView.ItemsSource;
+                            Console.WriteLine($"[UpdateIssuesDisplay] New ItemsSource type: {newSource?.GetType()?.Name ?? "null"}");
+                            Console.WriteLine($"[UpdateIssuesDisplay] IssuesListView.IsGrouped after setting: {IssuesListView.IsGrouped}");
+                            
+                            Console.WriteLine("[UpdateIssuesDisplay] Flat mode setup complete");
+                        }
+                        catch (Exception flatEx)
+                        {
+                            Console.WriteLine($"[UpdateIssuesDisplay] ERROR setting flat ItemsSource: {flatEx.GetType().Name}: {flatEx.Message}");
+                            Console.WriteLine($"[UpdateIssuesDisplay] Inner exception: {flatEx.InnerException?.Message}");
+                            throw;
+                        }
+                    }
+                    
+                    Console.WriteLine("[UpdateIssuesDisplay] Completed successfully");
+                }
+                catch (Exception innerEx)
+                {
+                    Console.WriteLine($"[UpdateIssuesDisplay] ERROR on UI thread: {innerEx.GetType().Name}: {innerEx.Message}");
+                    Console.WriteLine($"[UpdateIssuesDisplay] Stack trace: {innerEx.StackTrace}");
+                    Console.WriteLine($"[UpdateIssuesDisplay] Inner exception: {innerEx.InnerException?.Message}");
+                    
+                    // Try to recover by switching back to flat mode
+                    try
+                    {
+                        Console.WriteLine("[UpdateIssuesDisplay] Attempting recovery - switching to flat mode");
+                        _groupByTag = false;
+                        if (IssuesListView != null && _filteredIssues != null)
+                        {
+                            IssuesListView.ItemsSource = null;
+                            IssuesListView.IsGrouped = false;
+                            IssuesListView.ItemsSource = _filteredIssues;
+                        }
+                        
+                        // Update toggle button appearance
+                        if (GroupByTagToggle != null && GroupByTagToggleBorder != null)
+                        {
+                            GroupByTagToggleBorder.BackgroundColor = Color.FromArgb("#2A2A2A");
+                            GroupByTagToggleBorder.Stroke = Color.FromArgb("#4A9EFF");
+                            GroupByTagToggle.TextColor = Color.FromArgb("#4A9EFF");
+                            ToolTipProperties.SetText(GroupByTagToggle, "Group by tags");
+                        }
+                    }
+                    catch (Exception recoveryEx)
+                    {
+                        Console.WriteLine($"[UpdateIssuesDisplay] Recovery failed: {recoveryEx.Message}");
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[UpdateIssuesDisplay] ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[UpdateIssuesDisplay] Stack trace: {ex.StackTrace}");
+            Console.WriteLine($"[UpdateIssuesDisplay] Inner exception: {ex.InnerException?.Message}");
+        }
+    }
+
+    private void OnGroupHeaderTapped(object? sender, EventArgs e)
+    {
+        try
+        {
+            Console.WriteLine("[OnGroupHeaderTapped] Header tapped");
+            
+            if (sender == null)
+            {
+                Console.WriteLine("[OnGroupHeaderTapped] Sender is null");
+                return;
+            }
+            
+            if (sender is Label label)
+            {
+                Console.WriteLine($"[OnGroupHeaderTapped] Sender is Label, BindingContext type: {label.BindingContext?.GetType().Name ?? "null"}");
+                
+                if (label.BindingContext is GroupedIssueItem group)
+                {
+                    Console.WriteLine($"[OnGroupHeaderTapped] Group '{group.GroupName}' tapped with {group.Count} issues");
+                    // For now, groups are always expanded
+                    // In future, could implement expand/collapse functionality
+                }
+                else
+                {
+                    Console.WriteLine($"[OnGroupHeaderTapped] BindingContext is not GroupedIssueItem, it's: {label.BindingContext?.GetType().Name ?? "null"}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[OnGroupHeaderTapped] Sender is not Label, it's: {sender.GetType().Name}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[OnGroupHeaderTapped] ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[OnGroupHeaderTapped] Stack trace: {ex.StackTrace}");
+        }
     }
 
     private string GetRelativeTime(DateTimeOffset dateTime)
@@ -1822,6 +2295,11 @@ public partial class TerminalPage : ContentPage, IDisposable
 
     private async void OnCreateIssue(object? sender, EventArgs e)
     {
+        Console.WriteLine("[OnCreateIssue] Starting issue creation");
+        Console.WriteLine($"[OnCreateIssue] Current groupByTag mode: {_groupByTag}");
+        Console.WriteLine($"[OnCreateIssue] Current _groupedIssues count: {_groupedIssues?.Count ?? -1}");
+        Console.WriteLine($"[OnCreateIssue] Current _filteredIssues count: {_filteredIssues?.Count ?? -1}");
+
         if (string.IsNullOrWhiteSpace(IssueTitleInput.Text))
         {
             await DisplayAlert("Error", "Title is required for the issue", "OK");
@@ -1896,16 +2374,24 @@ public partial class TerminalPage : ContentPage, IDisposable
         }
 
         // Hide the input panel
+        Console.WriteLine("[OnCreateIssue] Hiding issue input panel");
         IssueInputPanel.IsVisible = false;
 
         try
         {
-            if (_gitHubService == null || _commandPostingService == null) return;
+            if (_gitHubService == null || _commandPostingService == null)
+            {
+                Console.WriteLine("[OnCreateIssue] ERROR: Services are null");
+                return;
+            }
 
+            Console.WriteLine("[OnCreateIssue] Showing loading indicator");
             ShowLoadingIndicator();
 
             // Create the new issue on GitHub
+            Console.WriteLine($"[OnCreateIssue] Creating issue on GitHub with title: {title}");
             var newIssue = await _gitHubService.CreateIssueAsync(title, description);
+            Console.WriteLine($"[OnCreateIssue] Issue created with number: {newIssue?.Number}");
 
             if (newIssue != null)
             {
@@ -2000,12 +2486,21 @@ public partial class TerminalPage : ContentPage, IDisposable
                 IssueEstimateInput.Text = "";
 
                 // Add a small delay to ensure GitHub has processed the new issue
+                Console.WriteLine("[OnCreateIssue] Waiting 1 second for GitHub to process");
                 await Task.Delay(1000);
 
                 // Refresh the issues list
+                Console.WriteLine("[OnCreateIssue] Calling RefreshIssues");
+                Console.WriteLine($"[OnCreateIssue] Before refresh - _groupByTag: {_groupByTag}");
                 await RefreshIssues();
+                Console.WriteLine("[OnCreateIssue] RefreshIssues completed");
+                Console.WriteLine($"[OnCreateIssue] After refresh - _groupByTag: {_groupByTag}");
+                Console.WriteLine($"[OnCreateIssue] After refresh - _issues count: {_issues?.Count ?? -1}");
+                Console.WriteLine($"[OnCreateIssue] After refresh - _filteredIssues count: {_filteredIssues?.Count ?? -1}");
+                Console.WriteLine($"[OnCreateIssue] After refresh - _groupedIssues count: {_groupedIssues?.Count ?? -1}");
 
                 // If the new issue isn't in the list yet, try once more
+                Console.WriteLine($"[OnCreateIssue] Checking if issue #{newIssue.Number} is in _issues list");
                 if (!_issues.Any(i => i.Number == newIssue.Number))
                 {
                     await Task.Delay(2000);
@@ -2020,10 +2515,39 @@ public partial class TerminalPage : ContentPage, IDisposable
                 };
 
                 // Find and select the issue in the CollectionView
-                var issueInList = _issues.FirstOrDefault(i => i.Number == newIssue.Number);
-                if (issueInList != null)
+                try
                 {
-                    IssuesListView.SelectedItem = issueInList;
+                    if (_groupByTag)
+                    {
+                        // In grouped mode, find the issue within the groups
+                        Console.WriteLine($"[OnCreateIssue] Searching for issue #{newIssue.Number} in grouped view");
+                        foreach (var group in _groupedIssues)
+                        {
+                            var issueInGroup = group.FirstOrDefault(i => i.Number == newIssue.Number);
+                            if (issueInGroup != null)
+                            {
+                                Console.WriteLine($"[OnCreateIssue] Found issue #{newIssue.Number} in group '{group.GroupName}'");
+                                // In grouped mode, we can't directly select the item
+                                // Just load the details instead
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // In flat mode, select normally
+                        var issueInList = _filteredIssues.FirstOrDefault(i => i.Number == newIssue.Number);
+                        if (issueInList != null)
+                        {
+                            Console.WriteLine($"[OnCreateIssue] Selecting issue #{newIssue.Number} in flat view");
+                            IssuesListView.SelectedItem = issueInList;
+                        }
+                    }
+                }
+                catch (Exception selectEx)
+                {
+                    Console.WriteLine($"[OnCreateIssue] Error selecting issue: {selectEx.Message}");
+                    // Continue anyway - at least load the details
                 }
 
                 await LoadIssueDetails(newIssue.Number);
@@ -2978,30 +3502,89 @@ public partial class TerminalPage : ContentPage, IDisposable
 
     private void ApplyFilter()
     {
-        _filteredIssues.Clear();
-
-        foreach (var issue in _allIssues)
+        try
         {
-            bool matchesFilter = true;
-
-            // Apply text filter if present
-            if (!string.IsNullOrWhiteSpace(_filterText))
+            Console.WriteLine($"[ApplyFilter] Starting. Filter text: '{_filterText}'");
+            Console.WriteLine($"[ApplyFilter] All issues count: {_allIssues?.Count ?? -1}");
+            Console.WriteLine($"[ApplyFilter] Sort mode: {_sortMode}");
+            
+            if (_filteredIssues == null)
             {
-                var filterLower = _filterText.ToLower();
-                
-                // Check if title contains the filter text
-                bool titleMatch = issue.Title?.ToLower().Contains(filterLower) ?? false;
-                
-                // Check if any tag contains the filter text
-                bool tagMatch = issue.Tags?.Any(tag => tag.ToLower().Contains(filterLower)) ?? false;
-                
-                matchesFilter = titleMatch || tagMatch;
+                Console.WriteLine("[ApplyFilter] ERROR: _filteredIssues is null, creating new instance");
+                _filteredIssues = new ObservableCollection<IssueItem>();
+            }
+            
+            _filteredIssues.Clear();
+            Console.WriteLine("[ApplyFilter] Cleared filtered issues");
+
+            if (_allIssues == null)
+            {
+                Console.WriteLine("[ApplyFilter] ERROR: _allIssues is null");
+                return;
             }
 
-            if (matchesFilter)
+            // First, filter the issues
+            var filtered = new List<IssueItem>();
+            foreach (var issue in _allIssues)
+            {
+                bool matchesFilter = true;
+
+                // Apply text filter if present
+                if (!string.IsNullOrWhiteSpace(_filterText))
+                {
+                    var filterLower = _filterText.ToLower();
+                    
+                    // Check if title contains the filter text
+                    bool titleMatch = issue.Title?.ToLower().Contains(filterLower) ?? false;
+                    
+                    // Check if any tag contains the filter text
+                    bool tagMatch = issue.Tags?.Any(tag => tag.ToLower().Contains(filterLower)) ?? false;
+                    
+                    matchesFilter = titleMatch || tagMatch;
+                }
+
+                if (matchesFilter)
+                {
+                    filtered.Add(issue);
+                }
+            }
+            
+            // Now sort the filtered issues based on the current sort mode
+            IEnumerable<IssueItem> sorted = _sortMode switch
+            {
+                SortMode.IssueNumberDescending => 
+                    filtered.OrderByDescending(i => i.Number),
+                    
+                SortMode.DueDateAscending =>
+                    // Nulls first, then ascending by date
+                    filtered.OrderBy(i => i.DueDate.HasValue)
+                           .ThenBy(i => i.DueDate),
+                           
+                SortMode.DueDateDescending =>
+                    // Nulls first, then descending by date
+                    filtered.OrderBy(i => i.DueDate.HasValue)
+                           .ThenByDescending(i => i.DueDate),
+                           
+                _ => filtered.OrderByDescending(i => i.Number)
+            };
+            
+            // Add sorted items to the filtered collection
+            foreach (var issue in sorted)
             {
                 _filteredIssues.Add(issue);
             }
+            
+            Console.WriteLine($"[ApplyFilter] Filter applied. Filtered issues count: {_filteredIssues.Count}");
+            
+            // Update the display based on grouping mode
+            Console.WriteLine($"[ApplyFilter] Calling UpdateIssuesDisplay (groupByTag: {_groupByTag})");
+            UpdateIssuesDisplay();
+            Console.WriteLine("[ApplyFilter] UpdateIssuesDisplay completed");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ApplyFilter] ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[ApplyFilter] Stack trace: {ex.StackTrace}");
         }
     }
 
@@ -3045,6 +3628,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     OnPropertyChanged(nameof(DueDateIcon));
                     OnPropertyChanged(nameof(DueDateIconColor));
                     OnPropertyChanged(nameof(DueDateIconVisible));
+                    OnPropertyChanged(nameof(DueDateListColor));
                 }
             }
         }
@@ -3065,7 +3649,7 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             get
             {
-                if (!_dueDate.HasValue) return "";
+                if (!_dueDate.HasValue) return "#00000000"; // Transparent
 
                 var today = DateTime.Today;
                 var dueDate = _dueDate.Value.Date;
@@ -3074,7 +3658,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 if (dueDate == today) return "#FFA500"; // Orange for today
                 if (dueDate == today.AddDays(1)) return "#00FF00"; // Green for tomorrow
 
-                return "";
+                return "#00000000"; // Transparent
             }
         }
 
@@ -3089,6 +3673,28 @@ public partial class TerminalPage : ContentPage, IDisposable
 
                 // Show icon if due tomorrow, today, or overdue
                 return dueDate <= today.AddDays(1);
+            }
+        }
+
+        public string DueDateListColor
+        {
+            get
+            {
+                // If no due date is set, return white
+                if (!_dueDate.HasValue) return "#FFFFFF";
+
+                var today = DateTime.Today;
+                var dueDate = _dueDate.Value.Date;
+                var daysUntilDue = (dueDate - today).TotalDays;
+
+                // If due date is 14 days or less away, return white
+                if (daysUntilDue <= 14) return "#FFFFFF";
+                
+                // If due date is more than 14 days but less than 30 days, return light gray
+                if (daysUntilDue <= 30) return "#B0B0B0";
+                
+                // If due date is more than 30 days away, return dark gray
+                return "#606060";
             }
         }
 
@@ -3203,6 +3809,22 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
         }
+    }
+
+    public class GroupedIssueItem : List<IssueItem>
+    {
+        public string GroupName { get; private set; }
+
+        public GroupedIssueItem(string groupName, List<IssueItem> items) : base(items ?? new List<IssueItem>())
+        {
+            GroupName = groupName;
+            Console.WriteLine($"[GroupedIssueItem] Created group '{groupName}' with {items?.Count ?? 0} items");
+        }
+
+        // Display properties for the group header
+        public string GroupDisplay => $"{GroupName} ({Count})";
+        public string ExpandCollapseIcon => "\ue5cf"; // Always expanded for now
+        public bool IsExpanded => true; // Always expanded for now
     }
 
     public void Dispose()

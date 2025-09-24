@@ -98,6 +98,54 @@
                                 </Label>
                             </Border>
 
+                            <!-- Group By Tag Toggle -->
+                            <Border x:Name="GroupByTagToggleBorder"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label x:Name="GroupByTagToggle"
+                                       Text="&#xe892;"
+                                       TextColor="#4A9EFF"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Group by tags">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnGroupByTagToggled" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+
+                            <!-- Sort Mode Toggle -->
+                            <Border x:Name="SortModeToggleBorder"
+                                    BackgroundColor="#2A2A2A"
+                                    StrokeThickness="1"
+                                    Stroke="#4A9EFF"
+                                    HeightRequest="30"
+                                    WidthRequest="30"
+                                    VerticalOptions="Center">
+                                <Label x:Name="SortModeToggle"
+                                       Text="&#xe164;"
+                                       TextColor="#4A9EFF"
+                                       FontFamily="MaterialIcons"
+                                       FontSize="20"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"
+                                       HorizontalTextAlignment="Center"
+                                       VerticalTextAlignment="Center"
+                                       ToolTipProperties.Text="Sort by: Issue # (newest first)">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnSortModeToggled" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Border>
+
                             <!-- Priority Filter Buttons -->
                             <HorizontalStackLayout Spacing="0">
                                 <!-- Critical Priority Filter -->
@@ -233,15 +281,15 @@
 
                                     <!-- Issue number, text and task count -->
                                     <HorizontalStackLayout Grid.Column="2" Spacing="5">
-                                        <!-- Issue number in light gray -->
+                                        <!-- Issue number colored by due date -->
                                         <Label Text="{Binding IssueNumberDisplay}"
-                                               TextColor="#A0A0A0"
+                                               TextColor="{Binding DueDateListColor}"
                                                FontFamily="CascadiaMono"
                                                FontSize="13" />
 
                                         <!-- Issue title -->
                                         <Label Text="{Binding TitleDisplay}"
-                                               TextColor="{Binding TextColor}"
+                                               TextColor="{Binding DueDateListColor}"
                                                TextDecorations="{Binding TextDecorations}"
                                                FontFamily="CascadiaMono"
                                                FontSize="13" />
@@ -277,6 +325,41 @@
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
+                        <CollectionView.GroupHeaderTemplate>
+                            <DataTemplate>
+                                <Grid Padding="2" BackgroundColor="#1A1A1A">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Expand/Collapse icon -->
+                                    <Label Grid.Column="0"
+                                           Text="{Binding ExpandCollapseIcon}"
+                                           TextColor="#4A9EFF"
+                                           FontFamily="MaterialIcons"
+                                           FontSize="16"
+                                           VerticalOptions="Center">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnGroupHeaderTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+
+                                    <!-- Group name and count -->
+                                    <Label Grid.Column="1"
+                                           Text="{Binding GroupDisplay}"
+                                           TextColor="#4A9EFF"
+                                           FontFamily="CascadiaMono"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           VerticalOptions="Center">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnGroupHeaderTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.GroupHeaderTemplate>
                     </CollectionView>
 
                     <!-- Filter TextBox at bottom of issues pane -->
