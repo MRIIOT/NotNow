@@ -1307,6 +1307,554 @@ end note
 **Issue**: Infinite loop in UI thread
 **Fix**: Moved animation to background Task with UI marshaling
 
+## Advanced Architectural Patterns
+
+### Timer Architecture
+
+```plantuml
+@startuml
+!theme plain
+
+class TimerSystem {
+    - _workTimer: DispatcherTimer
+    - _countdownTimer: DispatcherTimer
+    - _workTimerRunning: bool
+    - _countdownTimerRunning: bool
+    - _workTimerStartTime: DateTime?
+    - _workTimerElapsed: TimeSpan
+    - _countdownSeconds: int
+    - _countdownRemainingSeconds: int
+    --
+    + OnWorkTimerToggle(): void
+    + OnCountdownTimerStartStop(): void
+    + ShowTimerNotification(): Task
+    + UpdateTimerDisplays(): void
+}
+
+class NotificationSystem {
+    - ToastNotification (Windows)
+    - WinRT Notification (Fallback)
+    - DisplayAlert (Final Fallback)
+    --
+    + ShowTimerNotification(): Task
+    + TryWindowsToast(): bool
+    + TryWinRTNotification(): bool
+    + FallbackToAlert(): Task
+}
+
+TimerSystem --> NotificationSystem : uses
+
+note right of NotificationSystem
+    Multi-layer fallback ensures
+    notifications work across
+    different Windows versions
+end note
+
+@enduml
+```
+
+### Time Tracking Calendar System
+
+```plantuml
+@startuml
+!theme plain
+
+title Advanced Time Tracking Architecture
+
+class CalendarNavigationSystem {
+    - _weekNavigationOffset: int
+    - _currentIssueState: IssueState
+    --
+    + OnPreviousWeekClicked(): void
+    + OnNextWeekClicked(): void
+    + UpdateTimeTrackingCalendar(state): void
+}
+
+class CalendarRenderer {
+    - DisplayFourWeeks(): void
+    - CalculateDailyTotals(): Dictionary
+    - FormatCompactTime(hours): string
+    - HighlightCurrentWeek(): void
+    - ShowFutureBrackets(): void
+}
+
+class TimeFormatting {
+    + Hours >= 1: "X.X"
+    + Hours < 1: "XXm"
+    + NoTime: "-"
+    + Today: "[.]"
+    + Future: "[X]"
+}
+
+CalendarNavigationSystem --> CalendarRenderer : uses
+CalendarRenderer --> TimeFormatting : formats with
+
+note bottom of CalendarRenderer
+    4-week rolling view with:
+    - Week navigation (-3 to current)
+    - Compact time display
+    - Visual week indicators
+    - Today highlighting
+end note
+
+@enduml
+```
+
+### Window Management System
+
+```plantuml
+@startuml
+!theme plain
+
+title Quake-Style Terminal Window Management
+
+class WindowController {
+    - AppWindow: Microsoft.UI.Windowing.AppWindow
+    - DisplayArea: Microsoft.UI.Windowing.DisplayArea
+    --
+    + OnExpandWindow(): void
+    + OnHideWindow(): void
+    + OnQuitApplication(): void
+    + ToggleExpandState(): void
+}
+
+state "Window States" as States {
+    state "Normal" as Normal : 60% height
+    state "Expanded" as Expanded : 100% height
+    state "Hidden" as Hidden : Minimized
+
+    Normal --> Expanded : Expand button
+    Expanded --> Normal : Restore button
+    Normal --> Hidden : Hide button
+    Hidden --> Normal : Restore
+}
+
+WindowController --> States : manages
+
+note right of WindowController
+    Platform-specific implementation
+    using WinRT and Win32 interop
+end note
+
+@enduml
+```
+
+### Dynamic Grouping with Error Recovery
+
+```plantuml
+@startuml
+!theme plain
+
+title Issue Grouping Error Recovery Pattern
+
+start
+:UpdateIssuesDisplay();
+
+:Unbind ItemsSource;
+note right
+    Critical: Unbind before
+    modifying collections
+end note
+
+if (Group by tag?) then (yes)
+    :Clear grouped collection;
+    :Build group dictionary;
+    :Create GroupedIssueItem instances;
+
+    partition "Try Grouped Mode" {
+        :Set IsGrouped = true;
+        :Set ItemsSource = _groupedIssues;
+    }
+
+    if (Error?) then (yes)
+        :Log error details;
+        #pink:Recovery Mode;
+        :Switch to flat mode;
+        :Reset UI state;
+        :Update toggle appearance;
+    else (no)
+        :Success;
+    endif
+else (no)
+    :Set IsGrouped = false;
+    :Set ItemsSource = _filteredIssues;
+endif
+
+stop
+
+@enduml
+```
+
+### Offline Mode Architecture
+
+```plantuml
+@startuml
+!theme plain
+
+class OfflineModeHandler {
+    - _isOffline: bool
+    - OfflineOverlay: Grid
+    --
+    + IsNetworkError(exception): bool
+    + ShowOfflineMode(): Task
+    + OnRetryConnection(): Task
+}
+
+class NetworkErrorDetection {
+    + HttpRequestException
+    + TaskCanceledException (timeout)
+    + SocketException
+    + IOException
+    + WebException
+    --
+    + ParseErrorType(): NetworkErrorType
+}
+
+OfflineModeHandler --> NetworkErrorDetection : detects
+
+note bottom of NetworkErrorDetection
+    Comprehensive network error
+    detection with specific handling
+    for different failure types
+end note
+
+@enduml
+```
+
+### Configuration Hot-Reload System
+
+```plantuml
+@startuml
+!theme plain
+
+title Configuration File Watching
+
+participant "FileSystemWatcher" as FSW
+participant "TerminalPage" as TP
+participant "ConfigLoader" as CL
+participant "ServiceManager" as SM
+
+FSW -> TP: OnConfigFileChanged
+activate TP
+
+TP -> TP: Debounce (300ms)
+note right
+    Prevents multiple reloads
+    from rapid file saves
+end note
+
+TP -> CL: ReloadConfiguration()
+CL -> CL: Read JSON files
+CL -> CL: Merge configs
+CL --> TP: New Configuration
+
+TP -> SM: Dispose old scope
+TP -> SM: Create new scope
+TP -> SM: Initialize services
+
+TP -> TP: LoadIssuesAsync()
+
+deactivate TP
+
+@enduml
+```
+
+### Performance Optimization Patterns
+
+```plantuml
+@startuml
+!theme plain
+
+class LazyLoadingPattern {
+    <<Hover-based Loading>>
+    - TimeSpentLabel: Hidden by default
+    - OnPointerEntered: Show if data exists
+    - OnPointerExited: Hide again
+    --
+    + Reduces initial render cost
+    + Shows data on demand
+}
+
+class BackgroundAnimation {
+    <<Task-based Animation>>
+    - _loadingAnimationCts: CancellationTokenSource
+    - Task.Run(): Background thread
+    - MainThread.InvokeAsync(): UI updates
+    --
+    + Prevents UI freezing
+    + Cancellable operation
+}
+
+class CollectionOptimization {
+    <<Unbind-Modify-Rebind>>
+    - ItemsSource = null
+    - Modify collections
+    - Set IsGrouped property
+    - ItemsSource = collection
+    --
+    + Prevents binding errors
+    + Atomic updates
+}
+
+note bottom
+    Critical performance patterns
+    discovered through profiling
+end note
+
+@enduml
+```
+
+### Developer Mode State Inspection
+
+```plantuml
+@startuml
+!theme plain
+
+title Developer Mode Architecture
+
+actor Developer
+participant "UI" as UI
+participant "StateParser" as Parser
+participant "Serializer" as JSON
+participant "DevPanel" as Panel
+
+Developer -> UI: Click Developer Mode
+UI -> Parser: ParseIssueState(issue, comments)
+Parser --> UI: IssueState object
+
+UI -> JSON: Serialize(state, indented)
+JSON --> UI: Formatted JSON
+
+UI -> Panel: Display JSON
+Panel -> Panel: Syntax highlighting
+Panel -> Developer: Visual state
+
+note right of Panel
+    Real-time state inspection
+    for debugging complex
+    state synchronization issues
+end note
+
+@enduml
+```
+
+### Notification Fallback Chain
+
+```plantuml
+@startuml
+!theme plain
+
+title Platform Notification Fallback Strategy
+
+start
+
+:Timer Completed;
+
+if (Windows Platform?) then (yes)
+    :Try Windows.UI.Notifications.ToastNotification;
+
+    if (Success?) then (yes)
+        :Show toast with audio;
+        stop
+    else (no)
+        :Log toast error;
+
+        :Try WinRT notification;
+        if (Success?) then (yes)
+            :Show WinRT notification;
+            stop
+        else (no)
+            :Log WinRT error;
+        endif
+    endif
+endif
+
+:Fallback to DisplayAlert;
+:Show modal dialog;
+
+stop
+
+note right
+    Comprehensive fallback ensures
+    users always get notified
+    regardless of Windows version
+end note
+
+@enduml
+```
+
+## Advanced Error Handling Patterns
+
+### Comprehensive Error Recovery
+
+```plantuml
+@startuml
+!theme plain
+
+class ErrorRecoverySystem {
+    + NetworkErrors: Retry with exponential backoff
+    + CollectionErrors: Fallback to flat mode
+    + NotificationErrors: Multi-layer fallback
+    + ConfigErrors: Use default configuration
+    + AnimationErrors: Cancel and reset
+    + StateErrors: Reload from GitHub
+}
+
+class ErrorLogging {
+    - Console.WriteLine(): Development
+    - Exception details: Type, Message, Stack
+    - Inner exceptions: Full chain
+    - Context information: Method, state
+    --
+    + Comprehensive debugging info
+}
+
+ErrorRecoverySystem --> ErrorLogging : logs all
+
+@enduml
+```
+
+## Memory Management Patterns
+
+### Service Scope Lifecycle
+
+```plantuml
+@startuml
+!theme plain
+
+title Service Scope Management
+
+participant "ConfigWatcher" as CW
+participant "TerminalPage" as TP
+participant "ServiceScope" as Scope
+participant "Services" as Svc
+
+CW -> TP: Config changed
+TP -> Scope: Dispose current
+Scope -> Svc: Dispose all services
+
+TP -> TP: Create new scope
+TP -> Svc: Initialize services
+TP -> TP: Store new scope
+
+note over Scope
+    Prevents memory leaks from
+    service reference cycles
+end note
+
+@enduml
+```
+
+## UI Thread Marshaling Patterns
+
+### Safe UI Updates
+
+```plantuml
+@startuml
+!theme plain
+
+class ThreadMarshalingPatterns {
+    + MainThread.InvokeOnMainThreadAsync(): Async UI updates
+    + MainThread.BeginInvokeOnMainThread(): Fire-and-forget
+    + Task.Run(): Background operations
+    + Dispatcher.Dispatch(): Timer callbacks
+    --
+    Critical for preventing:
+    - Cross-thread exceptions
+    - UI freezing
+    - Race conditions
+}
+
+@enduml
+```
+
+## Critical Implementation Insights
+
+### 1. Collection Binding Order
+**Critical Pattern**: Always unbind ItemsSource before modifying collections or IsGrouped property
+```csharp
+IssuesListView.ItemsSource = null;  // Unbind first
+// Modify collections or properties
+IssuesListView.IsGrouped = true/false;
+IssuesListView.ItemsSource = collection;  // Rebind
+```
+
+### 2. Platform-Specific Code Organization
+**Pattern**: Use conditional compilation for platform features
+```csharp
+#if WINDOWS
+    // Windows-specific implementation
+#endif
+```
+
+### 3. Error Recovery Strategy
+**Pattern**: Always have a fallback path for critical operations
+- Notifications: Toast → WinRT → Alert
+- Grouping: Grouped → Flat mode
+- Network: Online → Offline overlay
+
+### 4. Performance Critical Paths
+- **Hover Loading**: Show expensive UI only on demand
+- **Background Animation**: Run in Task.Run with UI marshaling
+- **Debouncing**: Prevent rapid repeated operations
+
+### 5. State Synchronization Edge Cases
+- Remove embedded state before parsing to prevent duplicate commands
+- Version tracking prevents command replay
+- Staleness detection triggers full refresh
+
+## Architecture Decision Records (ADRs)
+
+### ADR-001: Multi-Layer Notification System
+**Decision**: Implement fallback chain for notifications
+**Rationale**: Windows toast notifications fail on various Windows versions
+**Consequences**: More complex but ensures reliability
+
+### ADR-002: 4-Week Calendar View
+**Decision**: Show 4 weeks of time tracking with navigation
+**Rationale**: Provides context while maintaining performance
+**Consequences**: More complex rendering but better UX
+
+### ADR-003: Hover-Based Lazy Loading
+**Decision**: Load time spent info only on hover
+**Rationale**: Reduces initial render cost for large issue lists
+**Consequences**: Slight delay on hover but faster list rendering
+
+### ADR-004: Service Scope Recreation
+**Decision**: Recreate entire service scope on config change
+**Rationale**: Ensures clean state and prevents stale references
+**Consequences**: Brief reload but guarantees consistency
+
+## Testing Considerations
+
+### Critical Test Scenarios
+1. **Grouping Toggle**: Rapid toggling between grouped/flat modes
+2. **Network Failures**: Offline mode activation and recovery
+3. **Config Hot-Reload**: Multiple rapid config file changes
+4. **Timer Edge Cases**: Countdown at zero, work timer overflow
+5. **Platform Features**: Toast notifications on different Windows versions
+
+## Performance Metrics
+
+### Key Performance Indicators
+- **Issue List Render**: < 100ms for 100 issues
+- **Group Toggle**: < 200ms for mode switch
+- **Config Reload**: < 500ms for full refresh
+- **Hover Response**: < 50ms to show time spent
+- **Animation Frame Rate**: 60 FPS for loading spinner
+
+## Security Considerations
+
+### Token Management
+- PAT stored in local config only
+- Never logged or displayed in UI
+- Cleared on service disposal
+
+### Command Injection Prevention
+- All commands validated before execution
+- User input sanitized for GitHub API
+- No direct command construction from UI
+
 ## Future Considerations
 
 1. **State Conflict Resolution**: When multiple clients update simultaneously
@@ -1317,8 +1865,15 @@ end note
 6. **Performance Monitoring**: Add telemetry for API call patterns
 7. **Undo/Redo System**: Allow reverting state changes
 8. **Bulk Operations**: Select multiple issues for batch updates
+9. **Virtual Scrolling**: For lists with 1000+ issues
+10. **Incremental Search**: Real-time filtering with debouncing
+11. **Gesture Support**: Touch and swipe for navigation
+12. **Theme System**: Dark/light/custom themes
+13. **Keyboard Shortcuts**: Vim-style navigation
+14. **Plugin Architecture**: Extensible command system
 
 ---
 
-*Generated: 2025-01-23*
-*Version: 1.0.0*
+*Generated: 2025-01-24*
+*Version: 2.0.0*
+*Based on comprehensive analysis of TerminalPage.xaml.cs implementation*
