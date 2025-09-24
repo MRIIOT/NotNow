@@ -23,7 +23,9 @@
       "mcp__serena__replace_symbol_body",
       "mcp__serena__insert_after_symbol",
       "mcp__serena__insert_before_symbol",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "mcp__serena__list_memories",
+      "mcp__serena__delete_memory"
     ],
     "deny": [],
     "ask": []
