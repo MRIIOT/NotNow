@@ -1476,6 +1476,8 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- Window Control Toolbar -->
@@ -1567,8 +1569,173 @@
                    HorizontalOptions="Center"
                    VerticalOptions="Center" />
 
+            <!-- Work Timer (Pomodoro) -->
+            <Border Grid.Column="2"
+                    BackgroundColor="Transparent"
+                    StrokeThickness="1"
+                    Stroke="#2A2A2A"
+                    Padding="8,4"
+                    VerticalOptions="Center"
+                    Margin="0,0,10,0">
+                <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
+                    <Label Text="Work:"
+                           TextColor="#606060"
+                           FontFamily="CascadiaMono"
+                           FontSize="12"
+                           VerticalTextAlignment="Center" />
+
+                    <Label x:Name="WorkTimerDisplay"
+                           Text="0s"
+                           TextColor="#4A9EFF"
+                           FontFamily="CascadiaMono"
+                           FontSize="12"
+                           VerticalTextAlignment="Center"
+                           MinimumWidthRequest="65" />
+
+                    <!-- Work Timer Play/Pause Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            HeightRequest="20"
+                            WidthRequest="20"
+                            VerticalOptions="Center">
+                        <Label x:Name="WorkTimerPlayPauseButton"
+                               Text="&#xe037;"
+                               TextColor="#4A9EFF"
+                               FontFamily="MaterialIcons"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"
+                               ToolTipProperties.Text="Start work timer">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnWorkTimerToggle" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+
+                    <!-- Work Timer Reset Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            HeightRequest="20"
+                            WidthRequest="20"
+                            VerticalOptions="Center">
+                        <Label x:Name="WorkTimerResetButton"
+                               Text="&#xe047;"
+                               TextColor="#4A9EFF"
+                               FontFamily="MaterialIcons"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"
+                               ToolTipProperties.Text="Reset work timer">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnWorkTimerReset" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- Countdown Timer -->
+            <Border Grid.Column="3"
+                    BackgroundColor="Transparent"
+                    StrokeThickness="1"
+                    Stroke="#2A2A2A"
+                    Padding="8,4"
+                    VerticalOptions="Center"
+                    Margin="0,0,10,0">
+                <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
+                    <Label Text="Timer:"
+                           TextColor="#606060"
+                           FontFamily="CascadiaMono"
+                           FontSize="12"
+                           VerticalTextAlignment="Center" />
+
+                    <!-- Countdown Timer Up Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            HeightRequest="16"
+                            WidthRequest="16"
+                            VerticalOptions="Center">
+                        <Label x:Name="CountdownTimerUpButton"
+                               Text="&#xe5d8;"
+                               TextColor="#4A9EFF"
+                               FontFamily="MaterialIcons"
+                               FontSize="10"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"
+                               ToolTipProperties.Text="Add 5 minutes">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCountdownTimerUp" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+
+                    <Label x:Name="CountdownTimerDisplay"
+                           Text="25m0s"
+                           TextColor="#4A9EFF"
+                           FontFamily="CascadiaMono"
+                           FontSize="12"
+                           VerticalTextAlignment="Center"
+                           MinimumWidthRequest="75" />
+
+                    <!-- Countdown Timer Down Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            HeightRequest="16"
+                            WidthRequest="16"
+                            VerticalOptions="Center">
+                        <Label x:Name="CountdownTimerDownButton"
+                               Text="&#xe5db;"
+                               TextColor="#4A9EFF"
+                               FontFamily="MaterialIcons"
+                               FontSize="10"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"
+                               ToolTipProperties.Text="Remove 5 minutes">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCountdownTimerDown" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+
+                    <!-- Countdown Timer Start/Stop Button -->
+                    <Border BackgroundColor="#2A2A2A"
+                            StrokeThickness="1"
+                            Stroke="#4A9EFF"
+                            HeightRequest="20"
+                            WidthRequest="20"
+                            VerticalOptions="Center">
+                        <Label x:Name="CountdownTimerStartStopButton"
+                               Text="&#xe037;"
+                               TextColor="#4A9EFF"
+                               FontFamily="MaterialIcons"
+                               FontSize="12"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center"
+                               ToolTipProperties.Text="Start countdown timer">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCountdownTimerStartStop" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+                </HorizontalStackLayout>
+            </Border>
+
             <!-- Repository Selector -->
-            <HorizontalStackLayout Grid.Column="2"
+            <HorizontalStackLayout Grid.Column="4"
                                    Spacing="8"
                                    VerticalOptions="Center"
                                    Margin="0,0,20,0">
@@ -1588,7 +1755,7 @@
             </HorizontalStackLayout>
 
             <!-- Settings Button -->
-            <Border Grid.Column="3"
+            <Border Grid.Column="5"
                     x:Name="SettingsButton"
                     BackgroundColor="#2A2A2A"
                     StrokeThickness="1"
@@ -1612,7 +1779,7 @@
                 </Label>
             </Border>
 
-            <Image Grid.Column="4"
+            <Image Grid.Column="6"
                    Source="notnow_logo_square.png"
                    WidthRequest="30"
                    HeightRequest="30"

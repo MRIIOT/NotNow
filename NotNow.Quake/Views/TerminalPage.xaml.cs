@@ -49,6 +49,17 @@ public partial class TerminalPage : ContentPage, IDisposable
     private IServiceScope? _currentServiceScope;
     private Octokit.User? _currentUser;
 
+    // Timer fields
+    private System.Timers.Timer? _workTimer;
+    private System.Timers.Timer? _countdownTimer;
+    private DateTime _workTimerStartTime;
+    private TimeSpan _workTimerElapsed = TimeSpan.Zero;
+    private bool _workTimerRunning = false;
+    private bool _workTimerStopped = false; // Track if timer was stopped (not just paused)
+    private int _countdownSeconds = 1500; // Default 25 minutes = 1500 seconds
+    private int _countdownRemainingSeconds = 1500;
+    private bool _countdownTimerRunning = false;
+
     public TerminalPage()
     {
         try
@@ -71,6 +82,10 @@ public partial class TerminalPage : ContentPage, IDisposable
 
             // Services will be initialized when the page is loaded
             Loaded += OnPageLoaded;
+
+            // Initialize timers
+            InitializeTimers();
+
             Console.WriteLine("[TerminalPage] Constructor completed successfully");
         }
         catch (Exception ex)
@@ -3915,8 +3930,369 @@ public partial class TerminalPage : ContentPage, IDisposable
         public bool IsExpanded => true; // Always expanded for now
     }
 
+    #region Timer Methods
+
+    private void InitializeTimers()
+    {
+        // Initialize work timer (counts up)
+        _workTimer = new System.Timers.Timer(1000); // Update every second
+        _workTimer.Elapsed += OnWorkTimerElapsed;
+
+        // Initialize countdown timer (counts down)
+        _countdownTimer = new System.Timers.Timer(1000); // Update every second
+        _countdownTimer.Elapsed += OnCountdownTimerElapsed;
+
+        // Initialize UI
+        UpdateWorkTimerDisplay();
+        UpdateCountdownTimerDisplay();
+    }
+
+    private void OnWorkTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        var currentElapsed = _workTimerElapsed + (DateTime.Now - _workTimerStartTime);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            UpdateWorkTimerDisplay();
+        });
+    }
+
+    private void OnCountdownTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        _countdownRemainingSeconds--;
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_countdownRemainingSeconds <= 0)
+            {
+                // Timer finished
+                _countdownTimer?.Stop();
+                _countdownTimerRunning = false;
+                _countdownRemainingSeconds = 0;
+
+                UpdateCountdownTimerDisplay();
+                UpdateCountdownTimerButton();
+
+                // Show notification
+                ShowTimerNotification();
+            }
+            else
+            {
+                UpdateCountdownTimerDisplay();
+            }
+        });
+    }
+
+    private void UpdateWorkTimerDisplay()
+    {
+        var displayTime = _workTimerRunning ?
+            _workTimerElapsed + (DateTime.Now - _workTimerStartTime) :
+            _workTimerElapsed;
+
+        var days = (int)displayTime.TotalDays;
+        var hours = displayTime.Hours;
+        var minutes = displayTime.Minutes;
+        var seconds = displayTime.Seconds;
+
+        WorkTimerDisplay.Text = FormatTime(days, hours, minutes, seconds);
+    }
+
+    private void UpdateCountdownTimerDisplay()
+    {
+        var totalSeconds = _countdownRemainingSeconds;
+        var days = totalSeconds / 86400; // 24 * 60 * 60
+        totalSeconds %= 86400;
+        var hours = totalSeconds / 3600; // 60 * 60
+        totalSeconds %= 3600;
+        var minutes = totalSeconds / 60;
+        var seconds = totalSeconds % 60;
+
+        CountdownTimerDisplay.Text = FormatTime(days, hours, minutes, seconds);
+    }
+
+    private string FormatTime(int days, int hours, int minutes, int seconds)
+    {
+        var parts = new List<string>();
+
+        if (days > 0)
+            parts.Add($"{days}d");
+        if (hours > 0 || days > 0)
+            parts.Add($"{hours}h");
+        if (minutes > 0 || hours > 0 || days > 0)
+            parts.Add($"{minutes}m");
+
+        parts.Add($"{seconds}s");
+
+        return string.Join("", parts);
+    }
+
+    private void UpdateWorkTimerButton()
+    {
+        if (_workTimerRunning)
+        {
+            WorkTimerPlayPauseButton.Text = "\ue034"; // Pause icon
+            ToolTipProperties.SetText(WorkTimerPlayPauseButton, "Pause work timer");
+        }
+        else
+        {
+            WorkTimerPlayPauseButton.Text = "\ue037"; // Play icon
+            ToolTipProperties.SetText(WorkTimerPlayPauseButton, "Start work timer");
+        }
+    }
+
+    private void UpdateCountdownTimerButton()
+    {
+        if (_countdownTimerRunning)
+        {
+            CountdownTimerStartStopButton.Text = "\ue047"; // Stop/Reset icon
+            ToolTipProperties.SetText(CountdownTimerStartStopButton, "Stop countdown timer");
+        }
+        else
+        {
+            CountdownTimerStartStopButton.Text = "\ue037"; // Start icon
+            ToolTipProperties.SetText(CountdownTimerStartStopButton, "Start countdown timer");
+        }
+    }
+
+    private void OnWorkTimerToggle(object sender, EventArgs e)
+    {
+        if (_workTimerRunning)
+        {
+            // Pause timer - preserve elapsed time for resume
+            _workTimer?.Stop();
+            _workTimerElapsed += DateTime.Now - _workTimerStartTime;
+            _workTimerRunning = false;
+            _workTimerStopped = false; // This is a pause, not a stop
+        }
+        else
+        {
+            if (_workTimerStopped)
+            {
+                // Start fresh after being stopped - reset to zero
+                _workTimerElapsed = TimeSpan.Zero;
+                _workTimerStopped = false;
+            }
+            // Start/Resume timer
+            _workTimerStartTime = DateTime.Now;
+            _workTimer?.Start();
+            _workTimerRunning = true;
+        }
+
+        UpdateWorkTimerButton();
+        UpdateWorkTimerDisplay();
+    }
+
+    private void OnWorkTimerReset(object sender, EventArgs e)
+    {
+        // Stop timer - retain current value until play is pressed again
+        _workTimer?.Stop();
+        if (_workTimerRunning)
+        {
+            _workTimerElapsed += DateTime.Now - _workTimerStartTime;
+        }
+        _workTimerRunning = false;
+        _workTimerStopped = true; // Mark as stopped (not just paused)
+
+        UpdateWorkTimerButton();
+        UpdateWorkTimerDisplay();
+    }
+
+    private void OnCountdownTimerUp(object sender, EventArgs e)
+    {
+        if (!_countdownTimerRunning)
+        {
+            // If currently at 1 minute, go to 5 minutes, otherwise add 5 minutes
+            if (_countdownSeconds == 60) // If currently at 1 minute
+            {
+                _countdownSeconds = 300; // Go to 5 minutes
+            }
+            else
+            {
+                _countdownSeconds += 300; // Add 5 minutes
+            }
+            _countdownRemainingSeconds = _countdownSeconds;
+        }
+        else
+        {
+            // Same logic for running timer
+            if (_countdownRemainingSeconds == 60) // If currently at 1 minute
+            {
+                _countdownRemainingSeconds = 300; // Go to 5 minutes
+            }
+            else
+            {
+                _countdownRemainingSeconds += 300; // Add 5 minutes
+            }
+        }
+
+        UpdateCountdownTimerDisplay();
+    }
+
+    private void OnCountdownTimerDown(object sender, EventArgs e)
+    {
+        if (!_countdownTimerRunning)
+        {
+            // Allow going from 5 minutes to 1 minute, otherwise use 5-minute decrements
+            if (_countdownSeconds == 300) // If currently at 5 minutes
+            {
+                _countdownSeconds = 60; // Go to 1 minute
+            }
+            else
+            {
+                _countdownSeconds = Math.Max(60, _countdownSeconds - 300); // Minimum 1 minute
+            }
+            _countdownRemainingSeconds = _countdownSeconds;
+        }
+        else
+        {
+            // Same logic for running timer
+            if (_countdownRemainingSeconds <= 300 && _countdownRemainingSeconds > 60)
+            {
+                _countdownRemainingSeconds = 60; // Go to 1 minute if between 1-5 minutes
+            }
+            else
+            {
+                _countdownRemainingSeconds = Math.Max(1, _countdownRemainingSeconds - 300);
+            }
+        }
+
+        UpdateCountdownTimerDisplay();
+    }
+
+    private void OnCountdownTimerStartStop(object sender, EventArgs e)
+    {
+        if (_countdownTimerRunning)
+        {
+            // Stop and reset timer
+            _countdownTimer?.Stop();
+            _countdownTimerRunning = false;
+            _countdownRemainingSeconds = _countdownSeconds;
+        }
+        else
+        {
+            // Start timer
+            if (_countdownRemainingSeconds <= 0)
+            {
+                _countdownRemainingSeconds = _countdownSeconds;
+            }
+            _countdownTimer?.Start();
+            _countdownTimerRunning = true;
+        }
+
+        UpdateCountdownTimerButton();
+        UpdateCountdownTimerDisplay();
+    }
+
+    private async void ShowTimerNotification()
+    {
+        var title = "NotNow - Timer Finished";
+        var message = "Your countdown timer has completed!";
+
+        try
+        {
+#if WINDOWS
+            Console.WriteLine("[Timer] Attempting Windows toast notification...");
+
+            // Try Windows 10/11 toast notifications first
+            try
+            {
+                var toastNotifier = Windows.UI.Notifications.ToastNotificationManager.CreateToastNotifier("NotNow");
+
+                var toastXml = Windows.UI.Notifications.ToastNotificationManager.GetTemplateContent(
+                    Windows.UI.Notifications.ToastTemplateType.ToastText02);
+
+                var textElements = toastXml.GetElementsByTagName("text");
+                textElements[0].AppendChild(toastXml.CreateTextNode(title));
+                textElements[1].AppendChild(toastXml.CreateTextNode(message));
+
+                var toast = new Windows.UI.Notifications.ToastNotification(toastXml);
+
+                // Add audio
+                var audioElement = toastXml.CreateElement("audio");
+                audioElement.SetAttribute("src", "ms-winsoundevent:Notification.Default");
+                toastXml.DocumentElement?.AppendChild(audioElement);
+
+                toastNotifier.Show(toast);
+                Console.WriteLine("[Timer] Windows toast notification sent successfully");
+                return;
+            }
+            catch (Exception toastEx)
+            {
+                Console.WriteLine($"[Timer] Toast notification failed: {toastEx.GetType().Name}");
+                Console.WriteLine($"[Timer] Toast exception message: {toastEx.Message}");
+                Console.WriteLine($"[Timer] Toast exception stack trace: {toastEx.StackTrace}");
+
+                if (toastEx.InnerException != null)
+                {
+                    Console.WriteLine($"[Timer] Toast inner exception: {toastEx.InnerException.Message}");
+                }
+            }
+
+            // Try WinRT notifications as second option
+            try
+            {
+                Console.WriteLine("[Timer] Trying WinRT notification approach...");
+
+                var notificationManager = Windows.UI.Notifications.ToastNotificationManager.GetDefault();
+                var notifier = notificationManager.CreateToastNotifier();
+
+                var template = Windows.UI.Notifications.ToastNotificationManager.GetTemplateContent(
+                    Windows.UI.Notifications.ToastTemplateType.ToastText02);
+
+                var textNodes = template.GetElementsByTagName("text");
+                textNodes[0].InnerText = title;
+                textNodes[1].InnerText = message;
+
+                var notification = new Windows.UI.Notifications.ToastNotification(template);
+                notifier.Show(notification);
+
+                Console.WriteLine("[Timer] WinRT notification sent successfully");
+                return;
+            }
+            catch (Exception winrtEx)
+            {
+                Console.WriteLine($"[Timer] WinRT notification failed: {winrtEx.GetType().Name}");
+                Console.WriteLine($"[Timer] WinRT exception message: {winrtEx.Message}");
+                Console.WriteLine($"[Timer] WinRT exception stack trace: {winrtEx.StackTrace}");
+
+                if (winrtEx.InnerException != null)
+                {
+                    Console.WriteLine($"[Timer] WinRT inner exception: {winrtEx.InnerException.Message}");
+                }
+            }
+
+            Console.WriteLine("[Timer] All Windows notification methods failed, falling back to DisplayAlert");
+#endif
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Timer] General notification error: {ex.GetType().Name}");
+            Console.WriteLine($"[Timer] General exception message: {ex.Message}");
+            Console.WriteLine($"[Timer] General exception stack trace: {ex.StackTrace}");
+
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[Timer] General inner exception: {ex.InnerException.Message}");
+            }
+        }
+
+        // Final fallback - use MAUI DisplayAlert
+        try
+        {
+            Console.WriteLine("[Timer] Using DisplayAlert fallback");
+            await DisplayAlert(title, message, "OK");
+        }
+        catch (Exception fallbackEx)
+        {
+            Console.WriteLine($"[Timer] Even DisplayAlert failed: {fallbackEx.Message}");
+        }
+    }
+
+    #endregion
+
     public void Dispose()
     {
+        _workTimer?.Dispose();
+        _countdownTimer?.Dispose();
         _currentServiceScope?.Dispose();
         _configWatcher?.Dispose();
     }
