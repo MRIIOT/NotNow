@@ -25,6 +25,47 @@
                     <ColumnDefinition Width="0.30*" />
                 </Grid.ColumnDefinitions>
 
+                <!-- Offline Overlay -->
+                <Grid x:Name="OfflineOverlay"
+                      Grid.ColumnSpan="5"
+                      BackgroundColor="#1A1A1A"
+                      IsVisible="False"
+                      ZIndex="100">
+                    <StackLayout HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="20">
+                        <Label Text="🌐"
+                               FontSize="48"
+                               HorizontalOptions="Center"
+                               TextColor="#606060" />
+                        <Label Text="Offline"
+                               FontSize="24"
+                               FontFamily="CascadiaMono"
+                               TextColor="#4A9EFF"
+                               HorizontalOptions="Center" />
+                        <Label Text="GitHub is not available"
+                               FontSize="14"
+                               FontFamily="CascadiaMono"
+                               TextColor="#606060"
+                               HorizontalOptions="Center" />
+                        <Border BackgroundColor="#2A2A2A"
+                                StrokeThickness="1"
+                                Stroke="#4A9EFF"
+                                Padding="12,6"
+                                HorizontalOptions="Center">
+                            <Label Text="Retry Connection"
+                                   TextColor="#4A9EFF"
+                                   FontFamily="CascadiaMono"
+                                   FontSize="12"
+                                   HorizontalOptions="Center">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnRetryConnection" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                        </Border>
+                    </StackLayout>
+                </Grid>
+
                 <!-- Issues List -->
                 <Grid Grid.Column="0" Padding="5">
                     <Grid.RowDefinitions>
@@ -254,6 +295,10 @@
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
                                 <Grid Padding="2">
+                                    <Grid.GestureRecognizers>
+                                        <PointerGestureRecognizer PointerEntered="OnIssueItemPointerEntered"
+                                                                  PointerExited="OnIssueItemPointerExited" />
+                                    </Grid.GestureRecognizers>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="20" />
                                         <ColumnDefinition Width="20" />
@@ -321,6 +366,15 @@
                                                FontFamily="MaterialIcons"
                                                FontSize="13"
                                                IsVisible="{Binding TaskCountIconVisible}" />
+
+                                        <!-- Time spent display (visible on hover) -->
+                                        <Label StyleId="TimeSpentLabel"
+                                               Text="{Binding FormattedTimeSpent}"
+                                               TextColor="#606060"
+                                               FontFamily="CascadiaMono"
+                                               FontSize="11"
+                                               IsVisible="False"
+                                               Margin="5,0,0,0" />
                                     </HorizontalStackLayout>
                                 </Grid>
                             </DataTemplate>

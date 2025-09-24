@@ -48,6 +48,7 @@ public partial class TerminalPage : ContentPage, IDisposable
     private DateTime _lastConfigReload = DateTime.MinValue;
     private IServiceScope? _currentServiceScope;
     private Octokit.User? _currentUser;
+    private bool _isOffline = false;
 
     // Timer fields
     private System.Timers.Timer? _workTimer;
@@ -179,6 +180,12 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             Console.WriteLine($"[TerminalPage] OnPageLoaded error: {ex}");
             System.Diagnostics.Debug.WriteLine($"[TerminalPage] OnPageLoaded error: {ex}");
+
+            // Check if this is a network-related error
+            if (IsNetworkError(ex))
+            {
+                await ShowOfflineMode();
+            }
         }
     }
 
@@ -244,6 +251,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                     issueItem.Priority = versionedState.Data.Priority ?? "medium";
                     issueItem.DueDate = versionedState.Data.DueDate;
                     issueItem.Tags = versionedState.Data.Tags ?? new List<string>();
+                    issueItem.TotalTimeSpent = versionedState.Data.TotalTimeSpent;
                     Console.WriteLine($"[LoadIssuesAsync] Issue #{issue.Number} has {issueItem.Tags.Count} tags: [{string.Join(", ", issueItem.Tags)}]");
                 }
                 
@@ -299,6 +307,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                         issueItem.Priority = versionedState.Data.Priority ?? "medium";
                         issueItem.DueDate = versionedState.Data.DueDate;
                         issueItem.Tags = versionedState.Data.Tags ?? new List<string>();
+                        issueItem.TotalTimeSpent = versionedState.Data.TotalTimeSpent;
                         Console.WriteLine($"[LoadIssuesAsync] Issue #{issue.Number} has {issueItem.Tags.Count} tags: [{string.Join(", ", issueItem.Tags)}]");
                     }
                     
@@ -337,7 +346,16 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             Console.WriteLine($"[LoadIssuesAsync] ERROR: {ex.GetType().Name}: {ex.Message}");
             Console.WriteLine($"[LoadIssuesAsync] Stack trace: {ex.StackTrace}");
-            await DisplayAlert("Error", $"Failed to load issues: {ex.Message}", "OK");
+
+            // Check if this is a network-related error
+            if (IsNetworkError(ex))
+            {
+                await ShowOfflineMode();
+            }
+            else
+            {
+                await DisplayAlert("Error", $"Failed to load issues: {ex.Message}", "OK");
+            }
         }
         finally
         {
@@ -3905,7 +3923,35 @@ public partial class TerminalPage : ContentPage, IDisposable
         
         // Combined display with task count
         public string FullDisplayText => DisplayText + TaskCountDisplay;
-        
+
+        // Total time spent on this issue
+        public TimeSpan TotalTimeSpent { get; set; } = TimeSpan.Zero;
+
+        // Formatted time display for hover (0d0h0m format)
+        public string FormattedTimeSpent
+        {
+            get
+            {
+                if (TotalTimeSpent == TimeSpan.Zero)
+                    return "";
+
+                var days = (int)TotalTimeSpent.TotalDays;
+                var hours = TotalTimeSpent.Hours;
+                var minutes = TotalTimeSpent.Minutes;
+
+                // Smart formatting - hide leading zero units
+                if (days > 0)
+                    return $"{days}d{hours}h{minutes}m";
+                else if (hours > 0)
+                    return $"{hours}h{minutes}m";
+                else
+                    return $"{minutes}m";
+            }
+        }
+
+        // Visibility for time display (only show if time > 0)
+        public bool TimeSpentVisible => TotalTimeSpent > TimeSpan.Zero;
+
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
         
         protected virtual void OnPropertyChanged(string propertyName)
@@ -4285,6 +4331,125 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             Console.WriteLine($"[Timer] Even DisplayAlert failed: {fallbackEx.Message}");
         }
+    }
+
+    #endregion
+
+    #region Offline Handling
+
+    private bool IsNetworkError(Exception ex)
+    {
+        // Check for common network error patterns
+        var message = ex.Message.ToLower();
+        var innerMessage = ex.InnerException?.Message?.ToLower() ?? "";
+
+        return message.Contains("no such host is known") ||
+               message.Contains("unable to resolve") ||
+               message.Contains("network is unreachable") ||
+               message.Contains("connection timed out") ||
+               message.Contains("host not found") ||
+               message.Contains("temporary failure in name resolution") ||
+               innerMessage.Contains("no such host is known") ||
+               innerMessage.Contains("unable to resolve") ||
+               innerMessage.Contains("network is unreachable") ||
+               innerMessage.Contains("connection timed out") ||
+               innerMessage.Contains("host not found") ||
+               innerMessage.Contains("temporary failure in name resolution") ||
+               ex is System.Net.Sockets.SocketException ||
+               ex is System.Net.NetworkInformation.NetworkInformationException ||
+               ex is System.Net.WebException;
+    }
+
+    private async Task ShowOfflineMode()
+    {
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            _isOffline = true;
+            OfflineOverlay.IsVisible = true;
+            IssuesListView.IsVisible = false;
+            HideLoadingIndicator();
+        });
+    }
+
+    private async void OnRetryConnection(object sender, EventArgs e)
+    {
+        try
+        {
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                _isOffline = false;
+                OfflineOverlay.IsVisible = false;
+                IssuesListView.IsVisible = true;
+            });
+
+            // Attempt to reload issues
+            await LoadIssuesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[RetryConnection] Failed: {ex}");
+            if (IsNetworkError(ex))
+            {
+                await ShowOfflineMode();
+            }
+        }
+    }
+
+    #endregion
+
+    #region Issue Hover Events
+
+    private void OnIssueItemPointerEntered(object sender, PointerEventArgs e)
+    {
+        if (sender is Grid grid)
+        {
+            // Find the TimeSpentLabel within the Grid and show it if data exists
+            var timeSpentLabel = FindChildByName<Label>(grid, "TimeSpentLabel");
+            if (timeSpentLabel != null && grid.BindingContext is IssueItem issueItem)
+            {
+                if (issueItem.TimeSpentVisible)
+                {
+                    timeSpentLabel.IsVisible = true;
+                }
+            }
+        }
+    }
+
+    private void OnIssueItemPointerExited(object sender, PointerEventArgs e)
+    {
+        if (sender is Grid grid)
+        {
+            // Find the TimeSpentLabel within the Grid and hide it
+            var timeSpentLabel = FindChildByName<Label>(grid, "TimeSpentLabel");
+            if (timeSpentLabel != null)
+            {
+                timeSpentLabel.IsVisible = false;
+            }
+        }
+    }
+
+    private T? FindChildByName<T>(Element parent, string name) where T : Element
+    {
+        if (parent is ContentView contentView && contentView.Content != null)
+            return FindChildByName<T>(contentView.Content, name);
+
+        if (parent is Layout layout)
+        {
+            foreach (var child in layout.Children)
+            {
+                if (child is T typedChild && ((Element)child).StyleId == name)
+                    return typedChild;
+
+                if (child is Element element)
+                {
+                    var found = FindChildByName<T>(element, name);
+                    if (found != null)
+                        return found;
+                }
+            }
+        }
+
+        return null;
     }
 
     #endregion
