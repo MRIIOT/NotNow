@@ -1472,42 +1472,92 @@
         <Grid Grid.Row="1" HorizontalOptions="Fill" VerticalOptions="Center" Margin="10,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Label Grid.Column="0"
-                   Text="Press CTRL+~ to toggle"
-                   TextColor="#606060"
-                   FontFamily="CascadiaMono"
-                   FontSize="12"
-                   VerticalTextAlignment="Center"
-                   HorizontalOptions="Start"
-                   Margin="0,0,20,0" />
-
-            <!-- Current User Display -->
-            <HorizontalStackLayout Grid.Column="1"
+            <!-- Window Control Toolbar -->
+            <HorizontalStackLayout Grid.Column="0"
                                    Spacing="5"
                                    VerticalOptions="Center"
+                                   HorizontalOptions="Start"
                                    Margin="0,0,20,0">
-                <Label Text="User:"
-                       TextColor="#606060"
-                       FontFamily="CascadiaMono"
-                       FontSize="12"
-                       VerticalTextAlignment="Center" />
-                <Label x:Name="CurrentUserLabel"
-                       Text="Loading..."
-                       TextColor="#4A9EFF"
-                       FontFamily="CascadiaMono"
-                       FontSize="12"
-                       VerticalTextAlignment="Center" />
+
+                <!-- Hide Window Button -->
+                <Border BackgroundColor="#2A2A2A"
+                        StrokeThickness="1"
+                        Stroke="#4A9EFF"
+                        HeightRequest="24"
+                        WidthRequest="24"
+                        VerticalOptions="Center">
+                    <Label x:Name="HideButton"
+                           Text="&#xe931;"
+                           TextColor="#4A9EFF"
+                           FontFamily="MaterialIcons"
+                           FontSize="16"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           ToolTipProperties.Text="Hide window (Ctrl+~)">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnHideWindow" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Border>
+
+                <!-- Expand/Maximize Button -->
+                <Border BackgroundColor="#2A2A2A"
+                        StrokeThickness="1"
+                        Stroke="#4A9EFF"
+                        HeightRequest="24"
+                        WidthRequest="24"
+                        VerticalOptions="Center">
+                    <Label x:Name="ExpandButton"
+                           Text="&#xe94f;"
+                           TextColor="#4A9EFF"
+                           FontFamily="MaterialIcons"
+                           FontSize="16"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           ToolTipProperties.Text="Expand window">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnExpandWindow" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Border>
+
+                <!-- Quit Button -->
+                <Border BackgroundColor="#2A2A2A"
+                        StrokeThickness="1"
+                        Stroke="#4A9EFF"
+                        HeightRequest="24"
+                        WidthRequest="24"
+                        VerticalOptions="Center">
+                    <Label x:Name="QuitButton"
+                           Text="&#xe5cd;"
+                           TextColor="#4A9EFF"
+                           FontFamily="MaterialIcons"
+                           FontSize="16"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center"
+                           HorizontalTextAlignment="Center"
+                           VerticalTextAlignment="Center"
+                           ToolTipProperties.Text="Quit application">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnQuitApplication" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Border>
+
             </HorizontalStackLayout>
 
             <!-- Loading Indicator (center of footer) -->
-            <Label Grid.Column="2"
+            <Label Grid.Column="1"
                    x:Name="LoadingIndicator"
                    Text="&#xe863;"
                    FontFamily="MaterialIcons"
@@ -1518,7 +1568,7 @@
                    VerticalOptions="Center" />
 
             <!-- Repository Selector -->
-            <HorizontalStackLayout Grid.Column="3"
+            <HorizontalStackLayout Grid.Column="2"
                                    Spacing="8"
                                    VerticalOptions="Center"
                                    Margin="0,0,20,0">
@@ -1538,7 +1588,7 @@
             </HorizontalStackLayout>
 
             <!-- Settings Button -->
-            <Border Grid.Column="4"
+            <Border Grid.Column="3"
                     x:Name="SettingsButton"
                     BackgroundColor="#2A2A2A"
                     StrokeThickness="1"
@@ -1562,7 +1612,7 @@
                 </Label>
             </Border>
 
-            <Image Grid.Column="5"
+            <Image Grid.Column="4"
                    Source="notnow_logo_square.png"
                    WidthRequest="30"
                    HeightRequest="30"

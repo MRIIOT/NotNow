@@ -172,7 +172,7 @@ public partial class App : Application
 		}
 	}
 
-	private void ToggleVisibility()
+	public void ToggleVisibility()
 	{
 		if (_mainWindow == null) return;
 

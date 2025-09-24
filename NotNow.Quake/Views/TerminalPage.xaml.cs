@@ -3087,24 +3087,12 @@ public partial class TerminalPage : ContentPage, IDisposable
             _currentUser = await _gitHubService.GetCurrentUserAsync();
 
             // Update the UI with the username on the main thread
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                if (_currentUser != null && CurrentUserLabel != null)
-                {
-                    CurrentUserLabel.Text = _currentUser.Login;
-                }
-            });
+            // User label removed from UI
         }
         catch (Exception ex)
         {
             System.Console.WriteLine($"[TerminalPage] Failed to load current user: {ex.Message}");
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                if (CurrentUserLabel != null)
-                {
-                    CurrentUserLabel.Text = "Unknown";
-                }
-            });
+            // User label removed from UI
         }
         finally
         {
@@ -3176,6 +3164,106 @@ public partial class TerminalPage : ContentPage, IDisposable
         {
             DisplayAlert("Error", $"Failed to open website: {ex.Message}", "OK");
         }
+    }
+
+    private void OnHideWindow(object sender, EventArgs e)
+    {
+        try
+        {
+            // Call the ToggleVisibility method from the App class
+            if (Application.Current is App app)
+            {
+                app.ToggleVisibility();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TerminalPage] OnHideWindow error: {ex.Message}");
+            DisplayAlert("Error", $"Failed to hide window: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnQuitApplication(object sender, EventArgs e)
+    {
+        try
+        {
+            // Quit the application
+            Application.Current?.Quit();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TerminalPage] OnQuitApplication error: {ex.Message}");
+            DisplayAlert("Error", $"Failed to quit application: {ex.Message}", "OK");
+        }
+    }
+
+    private void OnExpandWindow(object sender, EventArgs e)
+    {
+#if WINDOWS
+        try
+        {
+            var window = Application.Current?.Windows?.FirstOrDefault();
+            if (window?.Handler is Microsoft.Maui.Handlers.WindowHandler handler)
+            {
+                var handle = WinRT.Interop.WindowNative.GetWindowHandle(handler.PlatformView);
+                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(handle);
+                var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+
+                var displayArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(windowId, Microsoft.UI.Windowing.DisplayAreaFallback.Primary);
+                var workAreaWidth = displayArea.WorkArea.Width;
+                var workAreaHeight = displayArea.WorkArea.Height;
+
+                // Toggle between expanded and normal height
+                var currentHeight = appWindow.Size.Height;
+                var expandedHeight = workAreaHeight;
+                var normalHeight = (int)(workAreaHeight * 0.6); // Use default 60% height
+
+                // If current height is less than 90% of work area, expand to full height
+                // Otherwise, restore to normal height
+                if (currentHeight < workAreaHeight * 0.9)
+                {
+                    // Expand to full work area height
+                    appWindow.MoveAndResize(new Windows.Graphics.RectInt32
+                    {
+                        X = 0,
+                        Y = 0,
+                        Width = workAreaWidth,
+                        Height = workAreaHeight
+                    });
+
+                    // Update the icon to show "restore" state
+                    if (sender is Label expandButton)
+                    {
+                        expandButton.Text = "\ue94d"; // Restore icon
+                        ToolTipProperties.SetText(expandButton, "Restore window size");
+                    }
+                }
+                else
+                {
+                    // Restore to normal height (60% of screen)
+                    appWindow.MoveAndResize(new Windows.Graphics.RectInt32
+                    {
+                        X = 0,
+                        Y = 0,
+                        Width = workAreaWidth,
+                        Height = normalHeight
+                    });
+
+                    // Update the icon to show "expand" state
+                    if (sender is Label expandButton)
+                    {
+                        expandButton.Text = "\ue94f"; // Expand icon
+                        ToolTipProperties.SetText(expandButton, "Expand window");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TerminalPage] OnExpandWindow error: {ex.Message}");
+            DisplayAlert("Error", $"Failed to resize window: {ex.Message}", "OK");
+        }
+#endif
     }
 
     private void OnSettingsClicked(object sender, EventArgs e)
