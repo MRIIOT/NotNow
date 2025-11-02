@@ -227,13 +227,13 @@ public partial class TerminalPage : ContentPage, IDisposable
             _filteredIssues.Clear();
             Console.WriteLine($"[LoadIssuesAsync] Collections cleared. Issues: {_issues.Count}, AllIssues: {_allIssues.Count}, FilteredIssues: {_filteredIssues.Count}");
 
-            // Always fetch and add open issues (limit to 15)
+            // Always fetch and add open issues (limit to 100)
             Console.WriteLine("[LoadIssuesAsync] Fetching open issues from GitHub");
             var openIssues = await _gitHubService.GetIssuesAsync(Octokit.ItemStateFilter.Open);
             Console.WriteLine($"[LoadIssuesAsync] Fetched {openIssues?.Count ?? 0} open issues");
-            
+
             int openIssuesAdded = 0;
-            foreach (var issue in openIssues.Take(15))
+            foreach (var issue in openIssues.Take(100))
             {
                 Console.WriteLine($"[LoadIssuesAsync] Processing open issue #{issue.Number}");
                 var issueItem = new IssueItem
@@ -289,7 +289,7 @@ public partial class TerminalPage : ContentPage, IDisposable
                 Console.WriteLine($"[LoadIssuesAsync] Fetched {closedIssues?.Count ?? 0} closed issues");
                 
                 int closedIssuesAdded = 0;
-                foreach (var issue in closedIssues.Take(10))
+                foreach (var issue in closedIssues.Take(100))
                 {
                     Console.WriteLine($"[LoadIssuesAsync] Processing closed issue #{issue.Number}");
                     var issueItem = new IssueItem
